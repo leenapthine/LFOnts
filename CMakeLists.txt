@@ -10,7 +10,7 @@ set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 include(FetchContent)
 FetchContent_Declare(juce
   GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-  GIT_TAG 7.0.12 # pin a stable tag you use
+  GIT_TAG 8.0.8   # or newer 8.x
 )
 FetchContent_MakeAvailable(juce)
 
@@ -21,11 +21,13 @@ juce_add_plugin(pink_eLFOnts
     PRODUCT_NAME        "pink eLFOnts"
     BUNDLE_ID           com.yourname.pinkelfonts
     FORMATS             VST3 AU            # no Standalone
-    IS_SYNTH            FALSE
+    IS_SYNTH            TRUE
     NEEDS_MIDI_INPUT    TRUE               # for retrig
     NEEDS_MIDI_OUTPUT   FALSE
     IS_MIDI_EFFECT      FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE)
+
+juce_generate_juce_header(pink_eLFOnts)
 
 target_sources(pink_eLFOnts PRIVATE
     source/PluginProcessor.cpp
@@ -33,7 +35,9 @@ target_sources(pink_eLFOnts PRIVATE
     source/PluginEditor.cpp
     source/PluginEditor.h
     source/SynthEngine.cpp
-    source/SynthEngine.h)
+    source/SynthEngine.h
+    source/LookAndFeel.h
+    source/LookAndFeel.cpp)
 
 target_link_libraries(pink_eLFOnts PRIVATE
     juce::juce_audio_utils

@@ -150,7 +150,7 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, j
 
 juce::AudioProcessorEditor *PinkELFOntsAudioProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor(*this); // replaced by our custom editor below
+    return new PinkELFOntsAudioProcessorEditor(*this);
 }
 
 void PinkELFOntsAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
@@ -164,4 +164,10 @@ void PinkELFOntsAudioProcessor::setStateInformation(const void *data, int sizeIn
     auto tree = juce::ValueTree::readFromData(data, size_t(sizeInBytes));
     if (tree.isValid())
         apvts.replaceState(tree);
+}
+
+// JUCE factory entry point
+juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
+{
+    return new PinkELFOntsAudioProcessor();
 }

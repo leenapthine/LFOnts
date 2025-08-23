@@ -14,12 +14,12 @@ static inline float triBendy01(double p, float riseGamma, float fallGamma)
     {
         // normalized t on rise edge
         const float t = (float)(p * 2.0);
-        return SynthEngine::powCurveRise(t, riseGamma);
+        return std::pow(t, riseGamma);
     }
     else
     {
         const float t = (float)((p - 0.5) * 2.0); // 0..1 on fall
-        return SynthEngine::powCurveFall(t, fallGamma);
+        return 1.0f - std::pow(t, fallGamma);
     }
 }
 
