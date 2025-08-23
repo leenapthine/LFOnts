@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
-#include "SynthEngine.h"
+#include "SynthEngine.h" // still present; we just don't use it for the carrier
+#include "LFOShape.h"    // <— single source of truth for the LFO math
 
 class PinkELFOntsAudioProcessor : public juce::AudioProcessor
 {
@@ -42,10 +43,34 @@ public:
     // Transport pull
     void updateTransportInfo();
 
+    // Helper so the editor (or others) can sample the current lane1 at any phase (0..1)
+    float evalLane1(float ph01) const;
+
 private:
-    SynthEngine engine{44100.0};
+    // Build the current Lane 1 shape from APVTS
+    LFO::Shape makeLane1Shape() const;
+
+    // Tempo utility
+    double getCurrentBpm() const;
+
+    // Map final shape to unipolar 0..1 for amplitude (respects global.range)
+    float toUnipolar01(float v) const;
+
+    // --- audio/LFO state ---
+    double sampleRateHz = 44100.0;
+    double lane1Phase01 = 0.0; // 0..1 phase
+    double carrierPhase = 0.0; // 0..1 phase for the audio carrier
+
+    // You can expose these later as params if you want
+    float carrierHz = 1000.0f;  // sine carrier for EF to “see”
+    float beatsPerCycle = 1.0f; // “1/4” = one cycle per quarter note
+
+    // Retrig book-keeping (if you want to get fancy later)
     juce::AudioPlayHead *playHead = nullptr;
-    juce::AudioPlayHead::CurrentPositionInfo posInfo;
+    juce::AudioPlayHead::CurrentPositionInfo posInfo{};
+
+    // Your existing synth engine (unused for the carrier render here)
+    SynthEngine engine{44100.0};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessor)
 };

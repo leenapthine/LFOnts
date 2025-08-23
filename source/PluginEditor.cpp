@@ -97,7 +97,7 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(invertBK.slider, -1.0, 1.0, "");
     invertBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertBK.slider);
 
-    // Duals
+    // Duals (length + curve)
     addAndMakeVisible(riseA);
     configSlider(riseA.length, 0.25, 4.0, "");
     configSlider(riseA.curve, -1.0, 1.0, "");
@@ -145,6 +145,11 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(lane1Scope2);
     addAndMakeVisible(randomScope3);
 
+    // If you switch your header to the version that has setEvaluator(), you can tie
+    // the scope exactly to your processor like this:
+    // lane1Scope2.setEvaluator([this](float ph01){ return processor.evalLane1(ph01); });
+
+    // Update scope when any knob changes
     auto upd = [this]
     { updateLane1Scope(); };
     chainOnValue(riseA.length, upd);
@@ -157,6 +162,7 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     chainOnValue(fallB.curve, upd);
     chainOnValue(invertAK.slider, upd);
     chainOnValue(invertBK.slider, upd);
+    chainOnValue(phaseK.slider, upd); // show phase in preview
 
     laneTabs.setCurrentTabIndex(0, juce::NotificationType::dontSendNotification);
     updateLane1Scope();
@@ -260,7 +266,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
         controls.removeFromTop(kGap);
 
-        // Row 1: Rise A | Fall A | Rise B | Fall B  (all dual knobs)
+        // Row 1: Rise A | Fall A | Rise B | Fall B  (dual knobs)
         auto rowDual = controls.removeFromTop(kDual);
         riseA.setBounds(rowDual.removeFromLeft(kDual));
         rowDual.removeFromLeft(kGap);
@@ -272,7 +278,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
     }
     else
     {
-        // Random
+        // Random (placeholder layout)
         auto r = content;
         const int controlsW = kKnob * 3 + kGap * 3 + 120;
         auto controls = r.removeFromLeft(controlsW);
@@ -298,10 +304,21 @@ void PinkELFOntsAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadca
 
 void PinkELFOntsAudioProcessorEditor::updateLane1Scope()
 {
-    lane1Scope2.setShape(
-        (float)riseA.length.getValue(), (float)fallA.length.getValue(),
-        (float)riseB.length.getValue(), (float)fallB.length.getValue(),
-        (float)invertAK.slider.getValue(), (float)invertBK.slider.getValue(),
-        (float)riseA.curve.getValue(), (float)fallA.curve.getValue(),
-        (float)riseB.curve.getValue(), (float)fallB.curve.getValue());
+    LFO::Shape s;
+    s.riseA = (float)riseA.length.getValue();
+    s.fallA = (float)fallA.length.getValue();
+    s.riseB = (float)riseB.length.getValue();
+    s.fallB = (float)fallB.length.getValue();
+
+    s.curvRiseA = (float)riseA.curve.getValue();
+    s.curvFallA = (float)fallA.curve.getValue();
+    s.curvRiseB = (float)riseB.curve.getValue();
+    s.curvFallB = (float)fallB.curve.getValue();
+
+    // Map UI [-1..1] -> shape [0..1]; center (0) = no inversion
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)invertAK.slider.getValue()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)invertBK.slider.getValue()));
+
+    lane1Scope2.setNumTriangles(2); // two triangles per lane-1 cycle
+    lane1Scope2.setFromShape(s, (float)phaseK.slider.getValue());
 }

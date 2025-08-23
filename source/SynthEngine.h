@@ -1,111 +1,114 @@
 #pragma once
-#include <cmath>
-#include <random>
-
-struct TransportInfo
-{
-    double bpm{120.0};
-    double ppq{0.0};
-    bool playing{false};
-};
+#include <JuceHeader.h>
+#include "LFOShape.h"
 
 class SynthEngine
 {
 public:
-    explicit SynthEngine(double sr) : sampleRate(sr) {}
+    explicit SynthEngine(double sr = 44100.0) { setSampleRate(sr); }
 
-    void setSampleRate(double sr) { sampleRate = sr; }
-    void setTransport(double bpm, double ppq, bool isPlaying)
+    // Setup
+    void setSampleRate(double sr) { sampleRate = (sr > 0 ? sr : 44100.0); }
+    void setTransport(double bpmIn, double ppq, bool playing)
     {
-        transport.bpm = bpm;
-        transport.ppq = ppq;
-        transport.playing = isPlaying;
-        // keep beat-locked; we recompute increments in render()
+        bpm = (bpmIn > 1.0 ? bpmIn : 120.0);
+        ppqPos = ppq;
+        isPlaying = playing;
     }
 
-    // Global
-    void setGlobal(float depth01, float phaseNudgeDeg, int retrigMode, bool bipolarOut)
+    // Global range/depth etc.
+    void setGlobal(float depthIn, float nudgeDegIn, int retrigModeIn, bool bipolarOut)
     {
-        globalDepth = depth01;
-        globalPhaseNudgeDeg = phaseNudgeDeg;
-        globalRetrig = retrigMode;
-        outBipolar = bipolarOut;
+        depth = juce::jlimit(0.0f, 1.0f, depthIn);
+        nudgeDeg = nudgeDegIn;
+        retrigMode = retrigModeIn;
+        bipolar = bipolarOut;
     }
 
-    // Lane 1 (¼ note) – skeleton
-    void setLane1(bool enabled, float mix01, float phaseDeg,
-                  float riseA, float fallA, float riseB, float fallB)
+    // Retrigger from MIDI
+    void noteOnRetrig()
     {
-        lane1.enabled = enabled;
-        lane1.mix = mix01;
-        lane1.phaseDeg = phaseDeg;
-        lane1.riseA = riseA;
-        lane1.fallA = fallA;
-        lane1.riseB = riseB;
-        lane1.fallB = fallB;
+        if (retrigMode != 0)
+            lane1Phase = 0.0;
     }
 
-    // Random lane – skeleton (selects from enabled lanes; here effectively lane1)
-    void setRandom(bool enabled, int rateIndex, float crossfadeMs, float mix01)
+    // Lane 1 (two triangles per full cycle)
+    void setLane1(bool enabledIn, float mixIn, float phaseDegIn,
+                  float riseA, float fallA, float riseB, float fallB,
+                  float curvRiseA, float curvFallA, float curvRiseB, float curvFallB,
+                  float invertA, float invertB)
     {
-        random.enabled = enabled;
-        random.rateIndex = rateIndex;
-        random.crossfadeMs = crossfadeMs;
-        random.mix = mix01;
+        lane1Enabled = enabledIn;
+        lane1Mix = juce::jlimit(0.0f, 1.0f, mixIn);
+        lane1PhaseDeg = phaseDegIn;
+
+        lane1Shape.riseA = riseA;
+        lane1Shape.fallA = fallA;
+        lane1Shape.riseB = riseB;
+        lane1Shape.fallB = fallB;
+
+        lane1Shape.curvRiseA = curvRiseA;
+        lane1Shape.curvFallA = curvFallA;
+        lane1Shape.curvRiseB = curvRiseB;
+        lane1Shape.curvFallB = curvFallB;
+
+        // IMPORTANT: invert is now in [-1..1] (0 means no inversion)
+        lane1Shape.invertA = juce::jlimit(-1.0f, 1.0f, invertA);
+        lane1Shape.invertB = juce::jlimit(-1.0f, 1.0f, invertB);
     }
 
-    // MIDI retrig
-    void noteOnRetrig() { retrigRequested = true; }
+    // Random lane (placeholder to keep your existing calls intact)
+    void setRandom(bool, int, float, float) {}
 
-    // Render CV into out[0..numSamples)
-    void render(float *out, int numSamples);
+    // Render mono control signal
+    void render(float *out, int numSamples)
+    {
+        if (!out || numSamples <= 0)
+            return;
+
+        for (int n = 0; n < numSamples; ++n)
+        {
+            float sig = 0.0f;
+
+            if (lane1Enabled && lane1Mix > 0.0f && depth > 0.0f)
+            {
+                const double phaseTotal = lane1Phase + (lane1PhaseDeg + nudgeDeg) / 360.0;
+                float v = LFO::evalCycle((float)std::fmod(phaseTotal + 1.0, 1.0),
+                                         lane1Shape); // [-1..1]
+
+                // Map to output range, then apply mix & depth
+                float u = bipolar ? v : (0.5f * (v + 1.0f)); // [-1..1] or [0..1]
+                sig += u * lane1Mix * depth;
+
+                // Advance phase: 2 triangles per cycle, each triangle = 1/4 note
+                const double beatsPerTriangle = 1.0;                               // Lane-1 rate = quarter-notes
+                const double trianglesPerCycle = 2.0;                              // two triangles in one cycle
+                const double beatsPerCycle = beatsPerTriangle * trianglesPerCycle; // = 2.0
+                const double cyclesPerSec = (bpm / 60.0) / beatsPerCycle;
+                lane1dPhi = cyclesPerSec / sampleRate;
+
+                lane1Phase += lane1dPhi;
+                if (lane1Phase >= 1.0)
+                    lane1Phase -= 1.0;
+            }
+
+            out[n] += sig;
+        }
+    }
 
 private:
-    // Helpers
-    inline double beatsPerSample(double bpm) const { return (bpm / 60.0) / sampleRate; } // beats advanced per sample
+    // Clocking
+    double sampleRate = 44100.0, bpm = 120.0, ppqPos = 0.0, lane1Phase = 0.0, lane1dPhi = 0.0;
+    bool isPlaying = false;
 
-    static inline float powCurveRise(float t, float gamma) { return std::pow(t, gamma); }
-    static inline float powCurveFall(float t, float gamma) { return 1.0f - std::pow(t, gamma); }
-    static inline float clamp01(float x) { return x < 0.f ? 0.f : (x > 1.f ? 1.f : x); }
-    static inline float lerp(float a, float b, float t) { return a + (b - a) * t; }
+    // Global
+    float depth = 1.0f, nudgeDeg = 0.0f;
+    int retrigMode = 0;
+    bool bipolar = false;
 
-    struct Lane
-    {
-        bool enabled{false};
-        float mix{0.5f};
-        float phaseDeg{0.0f};
-        // 4 curvature knobs
-        float riseA{1.0f}, fallA{1.0f}, riseB{1.0f}, fallB{1.0f};
-
-        // phase accumulator in [0,1)
-        double phase{0.0};
-    };
-
-    struct RandomLane
-    {
-        bool enabled{false};
-        int rateIndex{0}; // 0=1/4, 1=1/8, 2=1/16
-        float crossfadeMs{20.0f};
-        float mix{0.5f};
-
-        // xfade state
-        float xfadePos{1.0f}; // 0..1; 1 means no active fade
-        float prevVal{0.0f};
-    };
-
-    // State
-    double sampleRate{44100.0};
-    TransportInfo transport{};
-
-    // Globals
-    float globalDepth{1.0f};
-    float globalPhaseNudgeDeg{0.0f};
-    int globalRetrig{0};
-    bool outBipolar{false};
-
-    bool retrigRequested{false};
-
-    // Lanes
-    Lane lane1{};
-    RandomLane random{};
+    // Lane 1
+    bool lane1Enabled = false;
+    float lane1Mix = 0.5f;
+    float lane1PhaseDeg = 0.0f;
+    LFO::Shape lane1Shape{};
 };

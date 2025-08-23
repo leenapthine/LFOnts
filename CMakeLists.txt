@@ -37,7 +37,8 @@ target_sources(pink_eLFOnts PRIVATE
     source/SynthEngine.cpp
     source/SynthEngine.h
     source/LookAndFeel.h
-    source/LookAndFeel.cpp)
+    source/LookAndFeel.cpp
+    source/LFOShape.h )
 
 target_link_libraries(pink_eLFOnts PRIVATE
     juce::juce_audio_utils

@@ -1,5 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
+#include "LFOShape.h" // single source of truth for the lane shape (namespace LFO)
+
 class PinkELFOntsAudioProcessor;
 
 // ---------- small UI helpers ----------
@@ -78,8 +80,8 @@ struct Knob : juce::Component
 struct DualKnob : juce::Component
 {
     juce::Label caption;
-    juce::Slider length;
-    juce::Slider curve;
+    juce::Slider length; // outer
+    juce::Slider curve;  // inner (-1..1)
 
     explicit DualKnob(juce::String text = {})
     {
@@ -100,7 +102,7 @@ struct DualKnob : juce::Component
                                   juce::MathConstants<float>::pi * 2.75f, true);
         addAndMakeVisible(curve);
 
-        curve.toFront(false);
+        curve.toFront(false); // draw inner on top
     }
 
     void resized() override
@@ -118,38 +120,32 @@ struct DualKnob : juce::Component
     }
 };
 
-// ---- Scope: reacts to A/B length, curvature & invert -----------------------
+// ---- Scope that can render from either UI shape OR a processor evaluator ---
 struct ScopeTriangles : juce::Component
 {
-    explicit ScopeTriangles(int triangles = 2) : num(triangles)
+    explicit ScopeTriangles(int triangles = 2) : numTriangles(triangles)
     {
         setInterceptsMouseClicks(false, false);
     }
 
-    void setNumTriangles(int triangles)
+    void setNumTriangles(int n)
     {
-        num = juce::jlimit(1, 8, triangles);
+        numTriangles = juce::jlimit(1, 16, n);
         repaint();
     }
 
-    // lengths: split of segment, curvature: -1..1 concave/convex
-    // invert in [-1..1], 0 = normal peak, ±1 = fully inverted
-    void setShape(float riseA_, float fallA_,
-                  float riseB_, float fallB_,
-                  float invA_, float invB_,
-                  float curvRiseA_, float curvFallA_,
-                  float curvRiseB_, float curvFallB_)
+    // Option 1: UI-driven shape preview (fallback if no evaluator is set)
+    void setFromShape(const LFO::Shape &s, float phaseDeg)
     {
-        riseA = riseA_;
-        fallA = fallA_;
-        riseB = riseB_;
-        fallB = fallB_;
-        invA = invA_;
-        invB = invB_;
-        cRA = curvRiseA_;
-        cFA = curvFallA_;
-        cRB = curvRiseB_;
-        cFB = curvFallB_;
+        shape = s;
+        phase01 = juce::jlimit(0.0f, 1.0f, phaseDeg / 360.0f);
+        repaint();
+    }
+
+    // Option 2: exact DSP preview — provide a function phase[0..1] -> value[-1..1]
+    void setEvaluator(std::function<float(float)> fn)
+    {
+        evaluator = std::move(fn);
         repaint();
     }
 
@@ -161,79 +157,62 @@ struct ScopeTriangles : juce::Component
 
         const auto grid = findColour(juce::Slider::trackColourId);
         const auto wave = findColour(juce::Slider::thumbColourId);
+
         const float yMid = r.getCentreY();
         const float amp = r.getHeight() * 0.36f;
 
+        // Midline
         g.setColour(grid.withAlpha(0.45f));
         g.drawLine({r.getX(), yMid, r.getRight(), yMid}, 1.0f);
 
-        auto drawCurvedTri = [&](float x0, float x1, bool up,
-                                 float rise, float fall,
-                                 float curvRise, float curvFall,
-                                 float inv)
+        // Wave
+        const float periods = 0.5f * (float)numTriangles; // 2 triangles = 1 period
+        const int steps = juce::jmax(64, (int)r.getWidth());
+
+        juce::Path p;
+        bool first = true;
+
+        for (int i = 0; i <= steps; ++i)
         {
-            const float segW = x1 - x0;
-            float tRise = rise / juce::jmax(0.0001f, (rise + fall));
-            tRise = juce::jlimit(0.10f, 0.90f, tRise);
-            const float xApex = x0 + segW * tRise;
+            const float xNorm = (float)i / (float)steps; // 0..1 across width
+            const float ph = std::fmod(phase01 + xNorm * periods, 1.0f);
 
-            const float sign = up ? -1.0f : +1.0f;
-            const float mul = std::cos(juce::jlimit(-1.0f, 1.0f, inv) * juce::MathConstants<float>::pi);
-            const float yApex = yMid + sign * amp * mul;
+            float yN = evaluator
+                           ? juce::jlimit(-1.0f, 1.0f, evaluator(ph)) // DSP exact
+                           : LFO::evalCycle(ph, shape);               // UI fallback
 
-            juce::Point<float> P0{x0, yMid};
-            juce::Point<float> P1{xApex, yApex};
-            juce::Point<float> P2{x1, yMid};
+            const float x = r.getX() + xNorm * r.getWidth();
+            const float y = yMid - yN * amp;
 
-            auto ctrl = [&](juce::Point<float> A, juce::Point<float> B, float curv)
+            if (first)
             {
-                auto M = (A + B) * 0.5f;
-                auto D = B - A;
-                auto N = juce::Point<float>{-D.y, D.x};
-                float L = std::sqrt(N.x * N.x + N.y * N.y);
-                if (L > 0.0001f)
-                    N = {N.x / L, N.y / L};
-
-                // ↑ stronger curvature than before
-                const float k = 0.65f; // was 0.45
-                const float mag = k * std::min(std::abs(D.x), amp);
-                float c = juce::jlimit(-1.0f, 1.0f, curv);
-                c = c * std::abs(c) * 1.25f; // stronger easing
-                return M + N * (c * mag);
-            };
-
-            juce::Path p;
-            p.startNewSubPath(P0);
-            p.quadraticTo(ctrl(P0, P1, curvRise), P1);
-            p.quadraticTo(ctrl(P1, P2, curvFall), P2);
-            p.lineTo(P0);
-
-            g.setColour(wave.withAlpha(0.22f));
-            g.fillPath(p);
-
-            g.setColour(wave);
-            g.strokePath(p, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved,
-                                                 juce::PathStrokeType::rounded));
-        };
-
-        const float segW = r.getWidth() / (float)juce::jmax(1, num);
-        for (int i = 0; i < num; ++i)
-        {
-            const float x0 = r.getX() + i * segW;
-            const float x1 = x0 + segW;
-            const bool up = (i % 2 == 0);
-            if (up)
-                drawCurvedTri(x0, x1, true, riseA, fallA, cRA, cFA, invA);
+                p.startNewSubPath(x, y);
+                first = false;
+            }
             else
-                drawCurvedTri(x0, x1, false, riseB, fallB, cRB, cFB, invB);
+            {
+                p.lineTo(x, y);
+            }
         }
+
+        // Fill to midline
+        juce::Path fill = p;
+        fill.lineTo(r.getRight(), yMid);
+        fill.lineTo(r.getX(), yMid);
+        fill.closeSubPath();
+
+        g.setColour(wave.withAlpha(0.22f));
+        g.fillPath(fill);
+        g.setColour(wave);
+        g.strokePath(p, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved,
+                                             juce::PathStrokeType::rounded));
     }
 
 private:
-    int num = 2;
-    float riseA = 1.f, fallA = 1.f, riseB = 1.f, fallB = 1.f;
-    float invA = 0.f, invB = 0.f;
-    float cRA = 0.f, cFA = 0.f, cRB = 0.f, cFB = 0.f;
+    int numTriangles = 2;
+    float phase01 = 0.0f;
+    LFO::Shape shape{};
+    std::function<float(float)> evaluator; // if set, used instead of shape
 };
 
 // --------------- main editor ---------------
@@ -254,6 +233,7 @@ public:
     void changeListenerCallback(juce::ChangeBroadcaster *source) override;
 
 private:
+    // Update UI-driven scope preview (safe even if evaluator is set; it will just be ignored)
     void updateLane1Scope();
 
     PinkELFOntsAudioProcessor &processor;
@@ -267,29 +247,31 @@ private:
 
     // Sections
     Section secOutput{"Output"};
-    Section secLane1{""};
-    Section secRandom{"Random"};
+    Section secLane1{""};        // tabs are the header
+    Section secRandom{"Random"}; // kept for parity (hidden in layout)
 
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
 
-    // Lane 1
+    // Lane 1 (top row)
     juce::ToggleButton lane1Enabled{"On"};
     Knob mixK{"Mix"};
     Knob phaseK{"Phase"};
     Knob invertAK{"Invert A"};
     Knob invertBK{"Invert B"};
 
+    // Lane 1 (shape rows)
     DualKnob riseA{"Rise A"};
     DualKnob fallA{"Fall A"};
     DualKnob riseB{"Rise B"};
     DualKnob fallB{"Fall B"};
 
+    // Scopes
     ScopeTriangles lane1Scope2{2};
     ScopeTriangles randomScope3{3};
 
-    // Random
+    // Random tab (placeholder)
     juce::ToggleButton randomEnabled{"On"};
     juce::ComboBox randomRate;
     Knob randomXfadeK{"Xfade (ms)"};
@@ -306,8 +288,8 @@ private:
     std::unique_ptr<ButtonAtt> lane1OnAtt, randomOnAtt;
 
     std::unique_ptr<SliderAtt> mixAtt, phaseAtt;
-    std::unique_ptr<SliderAtt> riseAAtt, fallAAtt, riseBAtt, fallBAtt;
-    std::unique_ptr<SliderAtt> riseACurveAtt, fallACurveAtt, riseBCurveAtt, fallBCurveAtt;
+    std::unique_ptr<SliderAtt> riseAAtt, fallAAtt, riseBAtt, fallBAtt;                     // lengths (outer)
+    std::unique_ptr<SliderAtt> riseACurveAtt, fallACurveAtt, riseBCurveAtt, fallBCurveAtt; // curvature (inner)
     std::unique_ptr<SliderAtt> invertAAtt, invertBAtt;
     std::unique_ptr<SliderAtt> randomXfadeAtt, randomMixAtt;
 
