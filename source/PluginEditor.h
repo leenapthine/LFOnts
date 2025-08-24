@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <array>
 #include "LFOShape.h" // single source of truth for the lane shape (namespace LFO)
 
 class PinkELFOntsAudioProcessor;
@@ -120,6 +121,49 @@ struct DualKnob : juce::Component
     }
 };
 
+// ---- Switch matrix (L1..L9 + Random) --------------------------------------
+struct SwitchMatrix : juce::Component
+{
+    juce::ToggleButton l1{"L1"}, l2{"L2"}, l3{"L3"}, l4{"L4"}, l5{"L5"},
+        l6{"L6"}, l7{"L7"}, l8{"L8"}, l9{"L9"}, random{"Random"};
+
+    std::array<juce::ToggleButton *, 10> all{&l1, &l2, &l3, &l4, &l5, &l6, &l7, &l8, &l9, &random};
+
+    SwitchMatrix()
+    {
+        for (auto *b : all)
+            addAndMakeVisible(*b);
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        const int rowH = 28;
+        const int gapX = 16;
+        const int gapY = 10;
+        const int cols = 5;
+        const int cellW = (r.getWidth() - gapX * (cols - 1)) / cols;
+
+        auto placeRow = [&](int startIdx)
+        {
+            auto row = r.removeFromTop(rowH);
+            for (int i = 0; i < cols; ++i)
+            {
+                auto *b = all[(size_t)startIdx + (size_t)i];
+                if (!b)
+                    continue;
+                b->setBounds(row.removeFromLeft(cellW));
+                if (i < cols - 1)
+                    row.removeFromLeft(gapX);
+            }
+        };
+
+        placeRow(0); // L1..L5
+        r.removeFromTop(gapY);
+        placeRow(5); // L6..L9 + Random
+    }
+};
+
 // ---- Scope that can render from either UI shape OR a processor evaluator ---
 struct ScopeTriangles : juce::Component
 {
@@ -134,7 +178,6 @@ struct ScopeTriangles : juce::Component
         repaint();
     }
 
-    // Option 1: UI-driven shape preview (fallback if no evaluator is set)
     void setFromShape(const LFO::Shape &s, float phaseDeg)
     {
         shape = s;
@@ -142,7 +185,6 @@ struct ScopeTriangles : juce::Component
         repaint();
     }
 
-    // Option 2: exact DSP preview — provide a function phase[0..1] -> value[-1..1]
     void setEvaluator(std::function<float(float)> fn)
     {
         evaluator = std::move(fn);
@@ -233,29 +275,28 @@ public:
     void changeListenerCallback(juce::ChangeBroadcaster *source) override;
 
 private:
-    // Update UI-driven scope preview (safe even if evaluator is set; it will just be ignored)
     void updateLane1Scope();
 
     PinkELFOntsAudioProcessor &processor;
 
     // Top bar
     juce::Label title;
-    juce::ComboBox retrigBox, rangeBox;
+    juce::ComboBox retrigBox;
 
     // Tabs
     juce::TabbedComponent laneTabs{juce::TabbedButtonBar::TabsAtTop};
 
     // Sections
     Section secOutput{"Output"};
-    Section secLane1{""};        // tabs are the header
+    Section secLane1{""};
     Section secRandom{"Random"}; // kept for parity (hidden in layout)
 
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
+    SwitchMatrix switches; // L1..L9 + Random
 
     // Lane 1 (top row)
-    juce::ToggleButton lane1Enabled{"On"};
     Knob mixK{"Mix"};
     Knob phaseK{"Phase"};
     Knob invertAK{"Invert A"};
@@ -272,7 +313,6 @@ private:
     ScopeTriangles randomScope3{3};
 
     // Random tab (placeholder)
-    juce::ToggleButton randomEnabled{"On"};
     juce::ComboBox randomRate;
     Knob randomXfadeK{"Xfade (ms)"};
     Knob randomMixK{"Mix"};
@@ -282,7 +322,7 @@ private:
     using ButtonAtt = APVTS::ButtonAttachment;
     using ComboAtt = APVTS::ComboBoxAttachment;
 
-    std::unique_ptr<ComboAtt> retrigAtt, rangeAtt, randomRateAtt;
+    std::unique_ptr<ComboAtt> retrigAtt, randomRateAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
 
     std::unique_ptr<ButtonAtt> lane1OnAtt, randomOnAtt;
@@ -290,7 +330,7 @@ private:
     std::unique_ptr<SliderAtt> mixAtt, phaseAtt;
     std::unique_ptr<SliderAtt> riseAAtt, fallAAtt, riseBAtt, fallBAtt;                     // lengths (outer)
     std::unique_ptr<SliderAtt> riseACurveAtt, fallACurveAtt, riseBCurveAtt, fallBCurveAtt; // curvature (inner)
-    std::unique_ptr<SliderAtt> invertAAtt, invertBAtt;
+    std::unique_ptr<SliderAtt> invertAAtt, invertBAtt;                                     // <<— needed!
     std::unique_ptr<SliderAtt> randomXfadeAtt, randomMixAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessorEditor)

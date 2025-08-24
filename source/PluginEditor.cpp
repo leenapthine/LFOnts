@@ -14,10 +14,9 @@ namespace
     constexpr int kGap = 10;
     constexpr int kRowH = 44;
     constexpr int kCardH = 220;
-    constexpr int kLaneH = 430;  // room for full-size top row + one dual row
-    constexpr int kKnob = 100;   // full knob
-    constexpr int kDual = 88;    // dual knob size
-    constexpr int kToggleW = 70; // "On" pill
+    constexpr int kLaneH = 430; // room for full-size top row + one dual row
+    constexpr int kKnob = 100;  // full knob
+    constexpr int kDual = 88;   // dual knob size
 }
 
 static void configSlider(juce::Slider &s, double min, double max, const juce::String &suf = {})
@@ -50,10 +49,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(retrigBox);
     retrigAtt = std::make_unique<ComboAtt>(processor.apvts, "global.retrig", retrigBox);
 
-    rangeBox.addItemList(juce::StringArray{"0..1", "-1..1"}, 1);
-    addAndMakeVisible(rangeBox);
-    rangeAtt = std::make_unique<ComboAtt>(processor.apvts, "global.range", rangeBox);
-
     // --- Sections -----------------------------------------------------------
     addAndMakeVisible(secOutput);
     addAndMakeVisible(secLane1);
@@ -67,7 +62,7 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     laneTabs.getTabbedButtonBar().setColour(juce::TabbedButtonBar::tabTextColourId, juce::Colour(0xFFE6EBF2));
     laneTabs.getTabbedButtonBar().addChangeListener(this);
 
-    // --- Global knobs -------------------------------------------------------
+    // --- Output card (global) ----------------------------------------------
     addAndMakeVisible(depthK);
     configSlider(depthK.slider, 0.0, 1.0, "");
     depthAtt = std::make_unique<SliderAtt>(processor.apvts, "global.depth", depthK.slider);
@@ -76,11 +71,13 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(phaseNudgeK.slider, -30.0, 30.0, "°");
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
-    // --- Lane 1 (top row) ---------------------------------------------------
-    lane1Enabled.setButtonText("On");
-    addAndMakeVisible(lane1Enabled);
-    lane1OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane1.enabled", lane1Enabled);
+    // Switch matrix in Output card (attach L1 + Random; others are dummies)
+    addAndMakeVisible(switches);
+    switches.setAlwaysOnTop(true);
+    lane1OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane1.enabled", switches.l1);
+    randomOnAtt = std::make_unique<ButtonAtt>(processor.apvts, "random.enabled", switches.random);
 
+    // --- Lane 1 controls ----------------------------------------------------
     addAndMakeVisible(mixK);
     configSlider(mixK.slider, 0.0, 1.0, "");
     mixAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.mix", mixK.slider);
@@ -91,11 +88,8 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
 
     addAndMakeVisible(invertAK);
     configSlider(invertAK.slider, -1.0, 1.0, "");
-    invertAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertA", invertAK.slider);
-
     addAndMakeVisible(invertBK);
     configSlider(invertBK.slider, -1.0, 1.0, "");
-    invertBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertBK.slider);
 
     // Duals (length + curve)
     addAndMakeVisible(riseA);
@@ -114,21 +108,31 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(fallB.length, 0.25, 4.0, "");
     configSlider(fallB.curve, -1.0, 1.0, "");
 
+    // ---- Double-click reset behaviour -------------------------------------
+    invertAK.slider.setDoubleClickReturnValue(true, 0.0);
+    invertBK.slider.setDoubleClickReturnValue(true, 0.0);
+
+    for (auto *s : {&riseA.curve, &fallA.curve, &riseB.curve, &fallB.curve})
+        s->setDoubleClickReturnValue(true, 0.0);
+
+    phaseK.slider.setDoubleClickReturnValue(true, 0.0);
+
     // Attach to APVTS
+    // (lengths)
     riseAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseA", riseA.length);
     fallAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallA", fallA.length);
     riseBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseB", riseB.length);
     fallBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallB", fallB.length);
-
+    // (curves)
     riseACurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseA", riseA.curve);
     fallACurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallA", fallA.curve);
     riseBCurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseB", riseB.curve);
     fallBCurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallB", fallB.curve);
+    // (invert A/B)
+    invertAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertA", invertAK.slider);
+    invertBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertBK.slider);
 
-    // --- Random -------------------------------------------------------------
-    addAndMakeVisible(randomEnabled);
-    randomOnAtt = std::make_unique<ButtonAtt>(processor.apvts, "random.enabled", randomEnabled);
-
+    // --- Random tab ---------------------------------------------------------
     randomRate.addItemList(juce::StringArray{"1/4", "1/8", "1/16"}, 1);
     addAndMakeVisible(randomRate);
     randomRateAtt = std::make_unique<ComboAtt>(processor.apvts, "random.rate", randomRate);
@@ -145,10 +149,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(lane1Scope2);
     addAndMakeVisible(randomScope3);
 
-    // If you switch your header to the version that has setEvaluator(), you can tie
-    // the scope exactly to your processor like this:
-    // lane1Scope2.setEvaluator([this](float ph01){ return processor.evalLane1(ph01); });
-
     // Update scope when any knob changes
     auto upd = [this]
     { updateLane1Scope(); };
@@ -162,7 +162,7 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     chainOnValue(fallB.curve, upd);
     chainOnValue(invertAK.slider, upd);
     chainOnValue(invertBK.slider, upd);
-    chainOnValue(phaseK.slider, upd); // show phase in preview
+    chainOnValue(phaseK.slider, upd);
 
     laneTabs.setCurrentTabIndex(0, juce::NotificationType::dontSendNotification);
     updateLane1Scope();
@@ -188,8 +188,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
     auto top = bounds.removeFromTop(kRowH);
     title.setBounds(top.removeFromLeft(280));
     top.removeFromRight(kGap);
-    rangeBox.setBounds(top.removeFromRight(120));
-    top.removeFromRight(kGap);
     retrigBox.setBounds(top.removeFromRight(220));
 
     bounds.removeFromTop(kGap);
@@ -206,13 +204,20 @@ void PinkELFOntsAudioProcessorEditor::resized()
     laneTabs.setBounds(laneCardArea.reduced(12, 12));
     const int tabH = laneTabs.getTabbedButtonBar().getHeight();
 
-    // Output section
+    // Output section layout
     {
         auto r = outputArea.reduced(16, 32);
-        auto row = r.removeFromTop(kKnob + 8);
-        depthK.setBounds(row.removeFromLeft(kKnob));
-        row.removeFromLeft(kGap);
-        phaseNudgeK.setBounds(row.removeFromLeft(kKnob));
+
+        // Row A: Depth | Phase Nudge
+        auto rowA = r.removeFromTop(kKnob + 8);
+        depthK.setBounds(rowA.removeFromLeft(kKnob));
+        rowA.removeFromLeft(kGap);
+        phaseNudgeK.setBounds(rowA.removeFromLeft(kKnob));
+
+        r.removeFromTop(kGap);
+
+        // Row B: Switch matrix
+        switches.setBounds(r.removeFromTop(80)); // ~2 rows of pill toggles
     }
 
     // --- Tab content --------------------------------------------------------
@@ -222,6 +227,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
     const bool laneVisible = (tab == 0);
     const bool randomVisible = (tab == 1);
 
+    // Lane 1 widgets
     mixK.setVisible(laneVisible);
     phaseK.setVisible(laneVisible);
     invertAK.setVisible(laneVisible);
@@ -230,10 +236,9 @@ void PinkELFOntsAudioProcessorEditor::resized()
     fallA.setVisible(laneVisible);
     riseB.setVisible(laneVisible);
     fallB.setVisible(laneVisible);
-    lane1Enabled.setVisible(laneVisible);
     lane1Scope2.setVisible(laneVisible);
 
-    randomEnabled.setVisible(randomVisible);
+    // Random widgets
     randomRate.setVisible(randomVisible);
     randomXfadeK.setVisible(randomVisible);
     randomMixK.setVisible(randomVisible);
@@ -244,50 +249,53 @@ void PinkELFOntsAudioProcessorEditor::resized()
         // Left controls / Right scope
         auto r = content;
 
-        const int topRowW = kToggleW + kGap + 4 * kKnob + 3 * kGap;
-        const int dualRowW = 4 * kDual + 3 * kGap; // four duals on one row
-        const int controlsW = std::max(topRowW, dualRowW) + 4;
+        // Fixed 4-column grid: top knobs over dual knobs
+        const int cols = 4;
+        const int colW = kDual; // match dual width so columns line up cleanly
+        const int colGap = kGap;
+        const int gridW = cols * colW + (cols - 1) * colGap;
 
+        const int controlsW = gridW + 4;
         auto controls = r.removeFromLeft(controlsW);
         auto scope = r.reduced(8, 6);
         lane1Scope2.setBounds(scope);
 
-        // Row 0: On | Mix | Phase | Invert A | Invert B
+        // Row 0: Mix | Phase | Invert A | Invert B
         auto row0 = controls.removeFromTop(kKnob);
-        lane1Enabled.setBounds(row0.removeFromLeft(kToggleW).withSizeKeepingCentre(kToggleW, 24));
-        row0.removeFromLeft(kGap);
-        mixK.setBounds(row0.removeFromLeft(kKnob));
-        row0.removeFromLeft(kGap);
-        phaseK.setBounds(row0.removeFromLeft(kKnob));
-        row0.removeFromLeft(kGap);
-        invertAK.setBounds(row0.removeFromLeft(kKnob));
-        row0.removeFromLeft(kGap);
-        invertBK.setBounds(row0.removeFromLeft(kKnob));
+        auto placeTop = [&](Knob &k)
+        {
+            k.setBounds(row0.removeFromLeft(colW));
+            row0.removeFromLeft(colGap);
+        };
+        placeTop(mixK);
+        placeTop(phaseK);
+        placeTop(invertAK);
+        placeTop(invertBK);
 
         controls.removeFromTop(kGap);
 
-        // Row 1: Rise A | Fall A | Rise B | Fall B  (dual knobs)
+        // Row 1: Rise A | Fall A | Rise B | Fall B
         auto rowDual = controls.removeFromTop(kDual);
-        riseA.setBounds(rowDual.removeFromLeft(kDual));
-        rowDual.removeFromLeft(kGap);
-        fallA.setBounds(rowDual.removeFromLeft(kDual));
-        rowDual.removeFromLeft(kGap);
-        riseB.setBounds(rowDual.removeFromLeft(kDual));
-        rowDual.removeFromLeft(kGap);
-        fallB.setBounds(rowDual.removeFromLeft(kDual));
+        auto placeDual = [&](DualKnob &dk)
+        {
+            dk.setBounds(rowDual.removeFromLeft(colW));
+            rowDual.removeFromLeft(colGap);
+        };
+        placeDual(riseA);
+        placeDual(fallA);
+        placeDual(riseB);
+        placeDual(fallB);
     }
     else
     {
         // Random (placeholder layout)
         auto r = content;
-        const int controlsW = kKnob * 3 + kGap * 3 + 120;
+        const int controlsW = kKnob * 3 + kGap * 2 + 120;
         auto controls = r.removeFromLeft(controlsW);
         auto scope = r.reduced(8, 6);
         randomScope3.setBounds(scope);
 
         auto row = controls.removeFromTop(kKnob + 8);
-        randomEnabled.setBounds(row.removeFromLeft(60).withSizeKeepingCentre(60, 24));
-        row.removeFromLeft(kGap);
         randomRate.setBounds(row.removeFromLeft(120));
         row.removeFromLeft(kGap);
         randomXfadeK.setBounds(row.removeFromLeft(kKnob));
