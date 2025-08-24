@@ -18,22 +18,50 @@ struct PinkLookAndFeel : juce::LookAndFeel_V4
         setColour(juce::TextButton::textColourOffId, C::fromString("0xFFE6EBF2"));
     }
 
-    // Flat linear slider
+    // Flat linear slider (supports vertical & horizontal)
     void drawLinearSlider(juce::Graphics &g, int x, int y, int w, int h,
                           float sliderPos, float min, float max,
-                          const juce::Slider::SliderStyle, juce::Slider &) override
+                          const juce::Slider::SliderStyle style, juce::Slider &s) override
     {
+        auto track = findColour(juce::Slider::trackColourId);
+        auto back = findColour(juce::Slider::backgroundColourId);
+        auto thumb = findColour(juce::Slider::thumbColourId);
+
+        const bool isVertical = (style == juce::Slider::LinearVertical) || (h > w * 1.2f);
+
+        if (isVertical)
+        {
+            auto r = juce::Rectangle<float>(float(x), float(y), float(w), float(h)).reduced(8, 10);
+            // background rail
+            g.setColour(back);
+            g.fillRoundedRectangle(r.withWidth(6.0f).withCentre({r.getCentreX(), r.getCentreY()}), 3.0f);
+
+            // filled amount
+            const float t = juce::jlimit(0.0f, 1.0f, (sliderPos - min) / (max - min));
+            auto filled = r.removeFromBottom(r.getHeight() * t);
+            g.setColour(track);
+            g.fillRoundedRectangle(filled.withWidth(6.0f).withCentre({r.getCentreX(), filled.getCentreY()}), 3.0f);
+
+            // thumb cap
+            juce::Rectangle<float> thumbR(14.0f, 22.0f);
+            thumbR.setCentre(r.getCentreX(), filled.getY());
+            g.setColour(thumb);
+            g.fillRoundedRectangle(thumbR, 7.0f);
+            return;
+        }
+
+        // ---- Horizontal (unchanged look) ----
         auto r = juce::Rectangle<float>(float(x), float(y) + h * 0.5f - 3.0f, float(w), 6.0f);
         auto t = juce::jlimit(0.0f, 1.0f, (sliderPos - min) / (max - min));
         auto rw = r.withWidth(r.getWidth() * t);
 
-        g.setColour(findColour(juce::Slider::backgroundColourId));
+        g.setColour(back);
         g.fillRoundedRectangle(r, 3.0f);
 
-        g.setColour(findColour(juce::Slider::trackColourId));
+        g.setColour(track);
         g.fillRoundedRectangle(rw, 3.0f);
 
-        g.setColour(findColour(juce::Slider::thumbColourId));
+        g.setColour(thumb);
         g.fillEllipse(rw.getRight() - 6.0f, r.getCentreY() - 6.0f, 12.0f, 12.0f);
     }
 

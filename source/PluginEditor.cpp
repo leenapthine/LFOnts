@@ -59,6 +59,42 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(secLane);
     secLane.title = {};
 
+    // --- Mixer card (top-right) ------------------------------------------------
+    addAndMakeVisible(secMixer);
+
+    // Build 8 columns: label, fader (0..1), mute (laneX.enabled)
+    for (int i = 0; i < 8; ++i)
+    {
+        // Label "L1..L8"
+        mixerLbl[i].setText("L" + juce::String(i + 1), juce::dontSendNotification);
+        mixerLbl[i].setJustificationType(juce::Justification::centred);
+        mixerLbl[i].setColour(juce::Label::textColourId, juce::Colour(0xFFE6EBF2));
+        addAndMakeVisible(mixerLbl[i]);
+
+        // Fader
+        auto &f = mixerFader[i];
+        f.setSliderStyle(juce::Slider::LinearVertical);
+        f.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        f.setRange(0.0, 1.0, 0.0);
+        f.setDoubleClickReturnValue(true, 1.0);
+        addAndMakeVisible(f);
+
+        // Attach to laneX.mix if present (X=1..8)
+        const juce::String mixId = "lane" + juce::String(i + 1) + ".mix";
+        if (processor.apvts.getParameter(mixId) != nullptr)
+            mixerFaderAtt[i] = std::make_unique<SliderAtt>(processor.apvts, mixId, f);
+
+        // Mute/enable dot
+        auto &m = mixerOn[i];
+        m.setButtonText({});
+        m.setClickingTogglesState(true);
+        addAndMakeVisible(m);
+
+        const juce::String enId = "lane" + juce::String(i + 1) + ".enabled";
+        if (processor.apvts.getParameter(enId) != nullptr)
+            mixerOnAtt[i] = std::make_unique<ButtonAtt>(processor.apvts, enId, m);
+    }
+
     // --- Tabs ---------------------------------------------------------------
     addAndMakeVisible(laneTabs);
     laneTabs.addTab("Lane 1 (1/4)", juce::Colours::transparentBlack, nullptr, false);
@@ -561,11 +597,55 @@ void PinkELFOntsAudioProcessorEditor::resized()
     bounds.removeFromTop(kGap);
 
     // --- Cards --------------------------------------------------------------
+    // Right: Mixer card (remainder of the top row)
     auto row1 = bounds.removeFromTop(kCardH);
     auto outputArea = row1.removeFromLeft(int(row1.getWidth() * 0.58f));
     secOutput.setBounds(outputArea);
 
-    bounds.removeFromTop(kGap);
+    auto mixerArea = row1; // whatever remains
+    secMixer.setBounds(mixerArea);
+
+    // Layout: labels, faders, mute dots
+    auto m = mixerArea.reduced(16, 32);
+    m.removeFromTop(4); // breathing room under section header
+    // Row for labels
+    auto labelsRow = m.removeFromTop(24);
+    m.removeFromTop(8);
+
+    // Compute columns
+    const int cols = 8;
+    const int gapX = 16;
+    const int colW = (m.getWidth() - gapX * (cols - 1)) / cols;
+    const int muteH = 22;
+    const int faderH = juce::jmin(160, m.getHeight() - muteH - 12);
+
+    auto cursorLabels = labelsRow;
+    auto cursorCols = m;
+
+    for (int i = 0; i < cols; ++i)
+    {
+        auto labelCol = cursorLabels.removeFromLeft(colW);
+        mixerLbl[i].setBounds(labelCol);
+
+        auto col = cursorCols.removeFromLeft(colW);
+        if (i < cols - 1)
+        {
+            cursorLabels.removeFromLeft(gapX);
+            cursorCols.removeFromLeft(gapX);
+        }
+
+        // Fader centered in column, above mute row
+        auto faderRect = col.withTrimmedBottom(muteH + 8)
+                             .withSizeKeepingCentre(colW, faderH)
+                             .reduced(10, 4);
+        mixerFader[i].setBounds(faderRect);
+
+        // Mute dot at base
+        auto muteArea = col.removeFromBottom(muteH);
+        mixerOn[i].setBounds(muteArea.withSizeKeepingCentre(18, 18));
+    }
+
+    // bounds.removeFromTop(kGap);
     auto laneCardArea = bounds.removeFromTop(kLaneH);
     secLane.setBounds(laneCardArea);
 

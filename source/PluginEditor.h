@@ -354,6 +354,19 @@ private:
     Section secOutput{"Output"};
     Section secLane{""};
 
+    // APVTS attachments
+    using SliderAtt = APVTS::SliderAttachment;
+    using ButtonAtt = APVTS::ButtonAttachment;
+    using ComboAtt = APVTS::ComboBoxAttachment;
+
+    // Mixer (top-right)
+    Section secMixer{"Mixer"};
+    std::array<juce::Slider, 8> mixerFader;
+    std::array<std::unique_ptr<SliderAtt>, 8> mixerFaderAtt;
+    std::array<juce::ToggleButton, 8> mixerOn;
+    std::array<std::unique_ptr<ButtonAtt>, 8> mixerOnAtt;
+    std::array<juce::Label, 8> mixerLbl;
+
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
@@ -432,11 +445,6 @@ private:
     juce::ComboBox randomRate;
     Knob randomXfadeK{"Xfade (ms)"};
     Knob randomMixK{"Mix"};
-
-    // APVTS attachments
-    using SliderAtt = APVTS::SliderAttachment;
-    using ButtonAtt = APVTS::ButtonAttachment;
-    using ComboAtt = APVTS::ComboBoxAttachment;
 
     std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
