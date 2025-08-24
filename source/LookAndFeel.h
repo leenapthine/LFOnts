@@ -96,4 +96,43 @@ struct PinkLookAndFeel : juce::LookAndFeel_V4
         g.setFont(juce::Font(juce::FontOptions(13.0f)));
         g.drawText(b.getButtonText(), r.reduced(4, 0), juce::Justification::centredLeft);
     }
+
+    void drawTabButton(juce::TabBarButton &button,
+                       juce::Graphics &g,
+                       bool isMouseOver, bool /*isMouseDown*/) override
+    {
+        auto area = button.getLocalBounds().toFloat().reduced(2.0f, 3.0f);
+        const bool front = button.isFrontTab();
+
+        const auto pink = juce::Colour(0xFFFF4FA3);
+        const auto bgDark = juce::Colour(0xFF0B0D10);
+        const auto stroke = juce::Colour(0xFF262B38);
+        const auto textOn = juce::Colour(0xFF0B0D10);  // dark text on pink
+        const auto textOff = juce::Colour(0xFFE6EBF2); // light text on dark
+        const float radius = 8.0f;
+
+        if (front)
+        {
+            float alpha = isMouseOver ? 0.98f : 0.90f;
+            g.setColour(pink.withAlpha(alpha));
+            g.fillRoundedRectangle(area, radius);
+
+            g.setColour(pink.darker(0.20f));
+            g.drawRoundedRectangle(area, radius, 1.6f);
+        }
+        else
+        {
+            float alpha = isMouseOver ? 0.80f : 0.65f;
+            g.setColour(bgDark.withAlpha(alpha));
+            g.fillRoundedRectangle(area, radius);
+
+            g.setColour(stroke);
+            g.drawRoundedRectangle(area, radius, 1.0f);
+        }
+
+        g.setColour(front ? textOn : textOff);
+        g.setFont(juce::Font(juce::FontOptions(13.0f, juce::Font::bold))); // avoid deprecated ctor
+        g.drawFittedText(button.getButtonText(), button.getLocalBounds(),
+                         juce::Justification::centred, 1);
+    }
 };
