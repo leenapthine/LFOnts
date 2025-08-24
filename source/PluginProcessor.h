@@ -45,11 +45,19 @@ public:
     // Helpers so the editor (or others) can sample current lanes at any phase (0..1)
     float evalLane1(float ph01) const;
     float evalLane2Triplet(float ph01) const; // A, B, B across 3 triangles
+    float evalLane3(float ph01) const;        // 1/8
+    float evalLane4Triplet(float ph01) const; // A, B, B across 3 triangles
+    float evalLane5(float ph01) const;        // 1/16
+    float evalLane6Triplet(float ph01) const; // A, B, B across 3 triangles
 
 private:
     // Build shapes from APVTS
     LFO::Shape makeLane1Shape() const;
     LFO::Shape makeLane2Shape() const;
+    LFO::Shape makeLane3Shape() const;
+    LFO::Shape makeLane4Shape() const;
+    LFO::Shape makeLane5Shape() const;
+    LFO::Shape makeLane6Shape() const;
 
     // Tempo utility
     double getCurrentBpm() const;
@@ -61,6 +69,10 @@ private:
     double sampleRateHz = 44100.0;
     double lane1Phase01 = 0.0; // 0..1 phase (2 triangles per full cycle)
     double lane2Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
+    double lane3Phase01 = 0.0; // 0..1 phase (2 triangles per full cycle)
+    double lane4Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
+    double lane5Phase01 = 0.0; // 0..1 phase (2 triangles per full cycle)
+    double lane6Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
     double carrierPhase = 0.0; // 0..1 phase for the audio carrier (for EF)
 
     // Carrier for EF visualization

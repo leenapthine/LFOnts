@@ -332,7 +332,11 @@ public:
 
 private:
     void updateLane1Scope();
-    void updateLane2Scope(); // NEW
+    void updateLane2Scope();
+    void updateLane3Scope();
+    void updateLane4Scope();
+    void updateLane5Scope();
+    void updateLane6Scope();
 
     // helper
     bool paramExists(const juce::String &id) const;
@@ -375,9 +379,53 @@ private:
     DualKnob riseB2{"Rise B"};
     DualKnob fallB2{"Fall B"};
 
+    // Lane 3 controls
+    Knob mixK3{"Mix"};
+    Knob phaseK3{"Phase"};
+    Knob invertA3{"Invert A"};
+    Knob invertB3{"Invert B"};
+    DualKnob riseA3{"Rise A"};
+    DualKnob fallA3{"Fall A"};
+    DualKnob riseB3{"Rise B"};
+    DualKnob fallB3{"Fall B"};
+
+    // Lane 4 controls (its own knobs)
+    Knob mixK4{"Mix"};
+    Knob phaseK4{"Phase"};
+    Knob invertA4{"Invert A"};
+    Knob invertB4{"Invert B"};
+    DualKnob riseA4{"Rise A"};
+    DualKnob fallA4{"Fall A"};
+    DualKnob riseB4{"Rise B"};
+    DualKnob fallB4{"Fall B"};
+
+    // Lane 5 controls
+    Knob mixK5{"Mix"};
+    Knob phaseK5{"Phase"};
+    Knob invertA5{"Invert A"};
+    Knob invertB5{"Invert B"};
+    DualKnob riseA5{"Rise A"};
+    DualKnob fallA5{"Fall A"};
+    DualKnob riseB5{"Rise B"};
+    DualKnob fallB5{"Fall B"};
+
+    // Lane 6 controls (its own knobs)
+    Knob mixK6{"Mix"};
+    Knob phaseK6{"Phase"};
+    Knob invertA6{"Invert A"};
+    Knob invertB6{"Invert B"};
+    DualKnob riseA6{"Rise A"};
+    DualKnob fallA6{"Fall A"};
+    DualKnob riseB6{"Rise B"};
+    DualKnob fallB6{"Fall B"};
+
     // Scopes
     ScopeTriangles lane1Scope2{2};
     ScopeTriangles lane2Scope3{3}; // Lane-2 triplet scope (A-B-B)
+    ScopeTriangles lane3Scope2{2};
+    ScopeTriangles lane4Scope3{3}; // Lane-4 triplet scope (A-B-B)
+    ScopeTriangles lane5Scope2{2};
+    ScopeTriangles lane6Scope3{3}; // Lane-6 triplet scope (A-B-B)
     ScopeTriangles randomScope3{3};
 
     // Random tab (placeholder)
@@ -393,7 +441,7 @@ private:
     std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
 
-    std::unique_ptr<ButtonAtt> lane1OnAtt, lane2OnAtt, randomOnAtt;
+    std::unique_ptr<ButtonAtt> lane1OnAtt, lane2OnAtt, lane3OnAtt, lane4OnAtt, lane5OnAtt, lane6OnAtt, randomOnAtt;
 
     // Lane 1 attaches
     std::unique_ptr<SliderAtt> mix1Att, phase1Att;
@@ -406,6 +454,30 @@ private:
     std::unique_ptr<SliderAtt> riseA2Att, fallA2Att, riseB2Att, fallB2Att;
     std::unique_ptr<SliderAtt> riseA2CurveAtt, fallA2CurveAtt, riseB2CurveAtt, fallB2CurveAtt;
     std::unique_ptr<SliderAtt> invertA2Att, invertB2Att;
+
+    // Lane 3 attaches
+    std::unique_ptr<SliderAtt> mix3Att, phase3Att;
+    std::unique_ptr<SliderAtt> riseA3Att, fallA3Att, riseB3Att, fallB3Att;                     // lengths
+    std::unique_ptr<SliderAtt> riseA3CurveAtt, fallA3CurveAtt, riseB3CurveAtt, fallB3CurveAtt; // curvature
+    std::unique_ptr<SliderAtt> invertA3Att, invertB3Att;
+
+    // Lane 4 attaches (created only if params exist)
+    std::unique_ptr<SliderAtt> mix4Att, phase4Att;
+    std::unique_ptr<SliderAtt> riseA4Att, fallA4Att, riseB4Att, fallB4Att;
+    std::unique_ptr<SliderAtt> riseA4CurveAtt, fallA4CurveAtt, riseB4CurveAtt, fallB4CurveAtt;
+    std::unique_ptr<SliderAtt> invertA4Att, invertB4Att;
+
+    // Lane 5 attaches
+    std::unique_ptr<SliderAtt> mix5Att, phase5Att;
+    std::unique_ptr<SliderAtt> riseA5Att, fallA5Att, riseB5Att, fallB5Att;                     // lengths
+    std::unique_ptr<SliderAtt> riseA5CurveAtt, fallA5CurveAtt, riseB5CurveAtt, fallB5CurveAtt; // curvature
+    std::unique_ptr<SliderAtt> invertA5Att, invertB5Att;
+
+    // Lane 6 attaches (created only if params exist)
+    std::unique_ptr<SliderAtt> mix6Att, phase6Att;
+    std::unique_ptr<SliderAtt> riseA6Att, fallA6Att, riseB6Att, fallB6Att;
+    std::unique_ptr<SliderAtt> riseA6CurveAtt, fallA6CurveAtt, riseB6CurveAtt, fallB6CurveAtt;
+    std::unique_ptr<SliderAtt> invertA6Att, invertB6Att;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessorEditor)
 };
