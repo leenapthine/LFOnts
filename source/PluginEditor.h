@@ -77,12 +77,12 @@ struct Knob : juce::Component
     }
 };
 
-// ---- Dual-ring knob: outer = length, inner = curvature (-1..1) -------------
+// ---- Dual-ring knob: outer = length, inner = curvature (0..1) -------------
 struct DualKnob : juce::Component
 {
     juce::Label caption;
     juce::Slider length; // outer
-    juce::Slider curve;  // inner (-1..1)
+    juce::Slider curve;  // inner (0..1)
 
     explicit DualKnob(juce::String text = {})
     {
@@ -219,9 +219,8 @@ struct ScopeTriangles : juce::Component
             const float xNorm = (float)i / (float)steps; // 0..1 across width
             const float ph = std::fmod(phase01 + xNorm * periods, 1.0f);
 
-            float yN = evaluator
-                           ? juce::jlimit(-1.0f, 1.0f, evaluator(ph)) // DSP exact
-                           : LFO::evalCycle(ph, shape);               // UI fallback
+            float yN = evaluator ? juce::jlimit(0.0f, 1.0f, evaluator(ph))
+                                 : LFO::evalCycle(ph, shape);
 
             const float x = r.getX() + xNorm * r.getWidth();
             const float y = yMid - yN * amp;

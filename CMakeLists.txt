@@ -34,8 +34,6 @@ target_sources(pink_eLFOnts PRIVATE
     source/PluginProcessor.h
     source/PluginEditor.cpp
     source/PluginEditor.h
-    source/SynthEngine.cpp
-    source/SynthEngine.h
     source/LookAndFeel.h
     source/LookAndFeel.cpp
     source/LFOShape.h )

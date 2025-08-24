@@ -22,11 +22,6 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "global.retrig", "Retrig Mode",
         StringArray{"Continuous", "Every Note", "First Note Only"}, 0));
 
-    // kept so the editor compiles; ignored in DSP now
-    params.push_back(std::make_unique<AudioParameterChoice>(
-        "global.range", "Output Range",
-        StringArray{"0..1", "-1..1"}, 0));
-
     // ---- Lane 1 (¼ note) ----
     params.push_back(std::make_unique<AudioParameterBool>(
         "lane1.enabled", "Lane 1 Enabled", true)); // default ON so you see triangles
