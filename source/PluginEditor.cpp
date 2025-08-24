@@ -552,6 +552,21 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     chainOnValue(invertB6.slider, upd6);
     chainOnValue(phaseK6.slider, upd6);
 
+    // depth / phase nudge affect the mixed scope
+    chainOnValue(depthK.slider, [this]
+                 { updateOutputMixScope(); });
+    chainOnValue(phaseNudgeK.slider, [this]
+                 { updateOutputMixScope(); });
+
+    // mixer faders + on/off toggles affect the mixed scope
+    for (int i = 0; i < 8; ++i)
+    {
+        mixerFader[i].onValueChange = [this]
+        { updateOutputMixScope(); };
+        mixerOn[i].onClick = [this]
+        { updateOutputMixScope(); };
+    }
+
     laneTabs.setCurrentTabIndex(0, juce::NotificationType::dontSendNotification);
     updateLane1Scope();
     updateLane2Scope();
@@ -634,7 +649,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
         mixerOn[i].setBounds(muteArea.withSizeKeepingCentre(18, 18));
     }
 
-    // bounds.removeFromTop(kGap);
     auto laneCardArea = bounds.removeFromTop(kLaneH);
     secLane.setBounds(laneCardArea);
 
@@ -643,15 +657,21 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
     // Output section layout
     {
-        auto r = outputArea.reduced(16, 32);
+        auto r = outputArea.reduced(16, 32); // inner content of the card
+        const int knobW = kKnob, knobH = kKnob;
+        const int y = r.getCentreY() - knobH / 2; // vertical center inside the card
 
-        // Row A: Depth | Phase Nudge
-        auto rowA = r.removeFromTop(kKnob + 8);
-        depthK.setBounds(rowA.removeFromLeft(kKnob));
-        rowA.removeFromLeft(kGap);
-        phaseNudgeK.setBounds(rowA.removeFromLeft(kKnob));
+        // scope takes the remaining right side, vertically centered around the knobs
+        const int left = phaseNudgeK.getRight() + kGap * 3;
+        auto scopeArea = juce::Rectangle<int>(left, r.getY(), r.getRight() - left, kKnob + 20)
+                             .withCentre({(left + r.getRight()) / 2, r.getCentreY()});
+        outputMixScope.setBounds(scopeArea);
 
-        r.removeFromTop(kGap);
+        // left-aligned, vertically centered
+        depthK.setBounds(r.getX(), y, knobW, knobH);
+        phaseNudgeK.setBounds(r.getX() + knobW + kGap, y, knobW, knobH);
+
+        r.removeFromTop(10);
     }
 
     // --- Tab content --------------------------------------------------------
@@ -771,6 +791,12 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
         if (scopeView != nullptr)
             scopeView->setBounds(scope);
+
+        addAndMakeVisible(outputMixScope);
+        outputMixScope.setEvaluator([this](float ph01)
+                                    {
+                                        return processor.evalMixed(ph01); // coming in step C
+                                    });
 
         // Row 0: Mix | Phase | Invert A | Invert B
         auto row0 = controls.removeFromTop(kKnob);
@@ -937,4 +963,9 @@ void PinkELFOntsAudioProcessorEditor::updateLane6Scope()
 {
     // evaluator pulls from APVTS in processor; just repaint
     lane6Scope3.repaint();
+}
+
+void PinkELFOntsAudioProcessorEditor::updateOutputMixScope()
+{
+    outputMixScope.repaint();
 }

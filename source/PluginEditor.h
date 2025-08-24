@@ -440,6 +440,10 @@ private:
     ScopeTriangles lane6Scope3{3}; // Lane-6 triplet scope (A-B-B)
     ScopeTriangles randomScope3{3};
 
+    // Output-card mixed scope
+    ScopeTriangles outputMixScope{2}; // reuse your scope; 2 triangles look fits the motif
+    void updateOutputMixScope();      // helper to repaint when things change
+
     // Random tab (placeholder)
     juce::ComboBox randomRate;
     Knob randomXfadeK{"Xfade (ms)"};

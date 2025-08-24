@@ -581,6 +581,46 @@ float PinkELFOntsAudioProcessor::evalLane6Triplet(float ph01) const
     }
 }
 
+float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
+{
+    // Apply phase nudge (deg -> 0..1)
+    const float nudgeDeg = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
+    const float nudge = juce::jlimit(0.0f, 1.0f, ph01 + nudgeDeg / 360.0f);
+
+    auto laneMix = [&](int laneIdx, float v)
+    {
+        const juce::String base = "lane" + juce::String(laneIdx);
+        const auto *en = apvts.getParameter(base + ".enabled");
+        const auto *mix = apvts.getParameter(base + ".mix");
+        if (!en || !mix)
+            return 0.0f;
+
+        const bool enabled = en->getValue() > 0.5f;
+        const float m = mix->getValue(); // 0..1
+        if (!enabled || m <= 0.0f)
+            return 0.0f;
+        return m * v; // simple linear
+    };
+
+    // Evaluate each lane’s shape at the nudged phase
+    float sum = 0.0f;
+    sum += laneMix(1, evalLane1(nudge));
+    sum += laneMix(2, evalLane2Triplet(nudge));
+    sum += laneMix(3, evalLane3(nudge));
+    sum += laneMix(4, evalLane4Triplet(nudge));
+    sum += laneMix(5, evalLane5(nudge));
+    sum += laneMix(6, evalLane6Triplet(nudge));
+    // lanes 7–8 when you add them:
+    // sum += laneMix(7, evalLane7(...));
+    // sum += laneMix(8, evalLane8(...));
+
+    // depth scales the whole thing
+    const float depth = apvts.getRawParameterValue("global.depth")->load(); // 0..1
+    const float out = juce::jlimit(0.0f, 1.0f, sum * depth);
+
+    return out;
+}
+
 // ==================== lifecycle / audio ====================
 
 void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
