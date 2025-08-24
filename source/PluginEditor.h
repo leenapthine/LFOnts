@@ -177,6 +177,11 @@ struct ScopeTriangles : juce::Component
         numTriangles = juce::jlimit(1, 16, n);
         repaint();
     }
+    void setABTripletMode(bool on)
+    {
+        abTripletMode = on;
+        repaint();
+    }
 
     void setFromShape(const LFO::Shape &s, float phaseDeg)
     {
@@ -200,15 +205,67 @@ struct ScopeTriangles : juce::Component
         const auto grid = findColour(juce::Slider::trackColourId);
         const auto wave = findColour(juce::Slider::thumbColourId);
 
-        const float yMid = r.getCentreY();
-        const float amp = r.getHeight() * 0.36f;
+        // baseline lower (closer to the bottom) + taller triangles
+        const float yBase = r.getBottom() - r.getHeight() * 0.24f; // ~20% above bottom
+        const float amp = r.getHeight() * 0.65f;                   // peaks reach higher
 
-        // Midline
+        // Baseline guide
         g.setColour(grid.withAlpha(0.45f));
-        g.drawLine({r.getX(), yMid, r.getRight(), yMid}, 1.0f);
+        g.drawLine({r.getX(), yBase, r.getRight(), yBase}, 1.0f);
 
-        // Wave
-        const float periods = 0.5f * (float)numTriangles; // 2 triangles = 1 period
+        // ABB triplet branch (static triangles, unipolar 0..1 visual)
+        if (abTripletMode && numTriangles == 3 && !evaluator)
+        {
+            const float rA = juce::jmax(0.0001f, shape.riseA);
+            const float fA = juce::jmax(0.0001f, shape.fallA);
+            const float rB = juce::jmax(0.0001f, shape.riseB);
+            const float fB = juce::jmax(0.0001f, shape.fallB);
+
+            const float apexFracA = (rA + fA > 0.0f) ? (rA / (rA + fA)) : 0.5f;
+            const float apexFracB = (rB + fB > 0.0f) ? (rB / (rB + fB)) : 0.5f;
+
+            const float slotW = r.getWidth() / 3.0f;
+
+            auto drawTri = [&](int slot, float frac, juce::Colour stroke, juce::Colour fill)
+            {
+                const float xL = r.getX() + slotW * (float)slot;
+                const float xR = xL + slotW;
+                const float xA = xL + frac * slotW;
+
+                const float baseY = yBase;
+                const float peakY = yBase - amp;
+
+                juce::Path p;
+                p.startNewSubPath(xL, baseY);
+                p.lineTo(xA, peakY);
+                p.lineTo(xR, baseY);
+
+                juce::Path fillP = p;
+                fillP.lineTo(xL, baseY);
+                fillP.closeSubPath();
+
+                g.setColour(fill);
+                g.fillPath(fillP);
+                g.setColour(stroke);
+                g.strokePath(p, juce::PathStrokeType(1.5f));
+            };
+
+            auto colAStroke = wave.withHue(0.56f).withAlpha(0.95f);
+            auto colAFill = colAStroke.withAlpha(0.18f);
+            auto colBStroke = wave.withHue(0.86f).withAlpha(0.95f);
+            auto colBFill = colBStroke.withAlpha(0.18f);
+
+            // A, B, B
+            drawTri(0, apexFracA, colAStroke, colAFill);
+            drawTri(1, apexFracB, colBStroke, colBFill);
+            drawTri(2, apexFracB, colBStroke, colBFill);
+            return;
+        }
+
+        // If an evaluator is set, draw exactly one full cycle (0..1).
+        // Otherwise (static preview), show triangles based on numTriangles.
+        const float periods = (evaluator ? 1.0f : 0.5f * (float)numTriangles);
+
         const int steps = juce::jmax(64, (int)r.getWidth());
 
         juce::Path p;
@@ -220,10 +277,10 @@ struct ScopeTriangles : juce::Component
             const float ph = std::fmod(phase01 + xNorm * periods, 1.0f);
 
             float yN = evaluator ? juce::jlimit(0.0f, 1.0f, evaluator(ph))
-                                 : LFO::evalCycle(ph, shape);
+                                 : LFO::evalCycle(ph, shape); // unipolar 0..1
 
             const float x = r.getX() + xNorm * r.getWidth();
-            const float y = yMid - yN * amp;
+            const float y = yBase - yN * amp;
 
             if (first)
             {
@@ -236,10 +293,9 @@ struct ScopeTriangles : juce::Component
             }
         }
 
-        // Fill to midline
         juce::Path fill = p;
-        fill.lineTo(r.getRight(), yMid);
-        fill.lineTo(r.getX(), yMid);
+        fill.lineTo(r.getRight(), yBase);
+        fill.lineTo(r.getX(), yBase);
         fill.closeSubPath();
 
         g.setColour(wave.withAlpha(0.22f));
@@ -254,6 +310,7 @@ private:
     float phase01 = 0.0f;
     LFO::Shape shape{};
     std::function<float(float)> evaluator; // if set, used instead of shape
+    bool abTripletMode = false;            // NEW
 };
 
 // --------------- main editor ---------------
@@ -275,6 +332,10 @@ public:
 
 private:
     void updateLane1Scope();
+    void updateLane2Scope(); // NEW
+
+    // helper
+    bool paramExists(const juce::String &id) const;
 
     PinkELFOntsAudioProcessor &processor;
 
@@ -287,28 +348,36 @@ private:
 
     // Sections
     Section secOutput{"Output"};
-    Section secLane1{""};
-    Section secRandom{"Random"}; // kept for parity (hidden in layout)
+    Section secLane{""};
 
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
     SwitchMatrix switches; // L1..L9 + Random
 
-    // Lane 1 (top row)
-    Knob mixK{"Mix"};
-    Knob phaseK{"Phase"};
-    Knob invertAK{"Invert A"};
-    Knob invertBK{"Invert B"};
+    // Lane 1 controls
+    Knob mixK1{"Mix"};
+    Knob phaseK1{"Phase"};
+    Knob invertA1{"Invert A"};
+    Knob invertB1{"Invert B"};
+    DualKnob riseA1{"Rise A"};
+    DualKnob fallA1{"Fall A"};
+    DualKnob riseB1{"Rise B"};
+    DualKnob fallB1{"Fall B"};
 
-    // Lane 1 (shape rows)
-    DualKnob riseA{"Rise A"};
-    DualKnob fallA{"Fall A"};
-    DualKnob riseB{"Rise B"};
-    DualKnob fallB{"Fall B"};
+    // Lane 2 controls (its own knobs)
+    Knob mixK2{"Mix"};
+    Knob phaseK2{"Phase"};
+    Knob invertA2{"Invert A"};
+    Knob invertB2{"Invert B"};
+    DualKnob riseA2{"Rise A"};
+    DualKnob fallA2{"Fall A"};
+    DualKnob riseB2{"Rise B"};
+    DualKnob fallB2{"Fall B"};
 
     // Scopes
     ScopeTriangles lane1Scope2{2};
+    ScopeTriangles lane2Scope3{3}; // Lane-2 triplet scope (A-B-B)
     ScopeTriangles randomScope3{3};
 
     // Random tab (placeholder)
@@ -321,16 +390,22 @@ private:
     using ButtonAtt = APVTS::ButtonAttachment;
     using ComboAtt = APVTS::ComboBoxAttachment;
 
-    std::unique_ptr<ComboAtt> retrigAtt, randomRateAtt;
+    std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
 
-    std::unique_ptr<ButtonAtt> lane1OnAtt, randomOnAtt;
+    std::unique_ptr<ButtonAtt> lane1OnAtt, lane2OnAtt, randomOnAtt;
 
-    std::unique_ptr<SliderAtt> mixAtt, phaseAtt;
-    std::unique_ptr<SliderAtt> riseAAtt, fallAAtt, riseBAtt, fallBAtt;                     // lengths (outer)
-    std::unique_ptr<SliderAtt> riseACurveAtt, fallACurveAtt, riseBCurveAtt, fallBCurveAtt; // curvature (inner)
-    std::unique_ptr<SliderAtt> invertAAtt, invertBAtt;                                     // <<— needed!
-    std::unique_ptr<SliderAtt> randomXfadeAtt, randomMixAtt;
+    // Lane 1 attaches
+    std::unique_ptr<SliderAtt> mix1Att, phase1Att;
+    std::unique_ptr<SliderAtt> riseA1Att, fallA1Att, riseB1Att, fallB1Att;                     // lengths
+    std::unique_ptr<SliderAtt> riseA1CurveAtt, fallA1CurveAtt, riseB1CurveAtt, fallB1CurveAtt; // curvature
+    std::unique_ptr<SliderAtt> invertA1Att, invertB1Att;
+
+    // Lane 2 attaches (created only if params exist)
+    std::unique_ptr<SliderAtt> mix2Att, phase2Att;
+    std::unique_ptr<SliderAtt> riseA2Att, fallA2Att, riseB2Att, fallB2Att;
+    std::unique_ptr<SliderAtt> riseA2CurveAtt, fallA2CurveAtt, riseB2CurveAtt, fallB2CurveAtt;
+    std::unique_ptr<SliderAtt> invertA2Att, invertB2Att;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessorEditor)
 };

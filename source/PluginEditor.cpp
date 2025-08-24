@@ -14,7 +14,7 @@ namespace
     constexpr int kGap = 10;
     constexpr int kRowH = 44;
     constexpr int kCardH = 220;
-    constexpr int kLaneH = 430; // room for full-size top row + one dual row
+    constexpr int kLaneH = 520; // room for full-size top row + one dual row
     constexpr int kKnob = 100;  // full knob
     constexpr int kDual = 88;   // dual knob size
 }
@@ -30,6 +30,11 @@ static void chainOnValue(juce::Slider &s, std::function<void()> extra)
     auto prev = s.onValueChange;
     s.onValueChange = [prev, extra]
     { if (prev) prev(); if (extra) extra(); };
+}
+
+bool PinkELFOntsAudioProcessorEditor::paramExists(const juce::String &id) const
+{
+    return processor.apvts.getParameter(id) != nullptr;
 }
 
 PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudioProcessor &p)
@@ -51,13 +56,14 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
 
     // --- Sections -----------------------------------------------------------
     addAndMakeVisible(secOutput);
-    addAndMakeVisible(secLane1);
-    secLane1.title = {};
-    secRandom.setVisible(false);
+    addAndMakeVisible(secLane);
+    secLane.title = {};
+    // Random card hidden for now (kept for parity in code)
 
     // --- Tabs ---------------------------------------------------------------
     addAndMakeVisible(laneTabs);
     laneTabs.addTab("Lane 1 (1/4)", juce::Colours::transparentBlack, nullptr, false);
+    laneTabs.addTab("Lane 2 (1/4T)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Random", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.getTabbedButtonBar().setColour(juce::TabbedButtonBar::tabTextColourId, juce::Colour(0xFFE6EBF2));
     laneTabs.getTabbedButtonBar().addChangeListener(this);
@@ -71,101 +77,166 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(phaseNudgeK.slider, -30.0, 30.0, "°");
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
-    // Switch matrix in Output card (attach L1 + Random; others are dummies)
+    // Switch matrix in Output card (attach L1 + L2 + Random)
     addAndMakeVisible(switches);
     switches.setAlwaysOnTop(true);
     lane1OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane1.enabled", switches.l1);
+    lane2OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane2.enabled", switches.l2); // NEW
     randomOnAtt = std::make_unique<ButtonAtt>(processor.apvts, "random.enabled", switches.random);
 
-    // --- Lane 1 controls ----------------------------------------------------
-    addAndMakeVisible(mixK);
-    configSlider(mixK.slider, 0.0, 1.0, "");
-    mixAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.mix", mixK.slider);
+    // --- LANE 1 controls ----------------------------------------------------
+    addAndMakeVisible(mixK1);
+    configSlider(mixK1.slider, 0.0, 1.0, "");
+    mix1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.mix", mixK1.slider);
 
-    addAndMakeVisible(phaseK);
-    configSlider(phaseK.slider, 0.0, 360.0, "°");
-    phaseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.phaseDeg", phaseK.slider);
+    addAndMakeVisible(phaseK1);
+    configSlider(phaseK1.slider, 0.0, 360.0, "°");
+    phase1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.phaseDeg", phaseK1.slider);
 
-    addAndMakeVisible(invertAK);
-    configSlider(invertAK.slider, -1.0, 1.0, "");
-    addAndMakeVisible(invertBK);
-    configSlider(invertBK.slider, -1.0, 1.0, "");
+    addAndMakeVisible(invertA1);
+    configSlider(invertA1.slider, -1.0, 1.0, "");
+    addAndMakeVisible(invertB1);
+    configSlider(invertB1.slider, -1.0, 1.0, "");
 
-    // Duals (length + curve)
-    addAndMakeVisible(riseA);
-    configSlider(riseA.length, 0.25, 4.0, "");
-    configSlider(riseA.curve, -1.0, 1.0, "");
+    addAndMakeVisible(riseA1);
+    configSlider(riseA1.length, 0.25, 4.0, "");
+    configSlider(riseA1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallA);
-    configSlider(fallA.length, 0.25, 4.0, "");
-    configSlider(fallA.curve, -1.0, 1.0, "");
+    addAndMakeVisible(fallA1);
+    configSlider(fallA1.length, 0.25, 4.0, "");
+    configSlider(fallA1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(riseB);
-    configSlider(riseB.length, 0.25, 4.0, "");
-    configSlider(riseB.curve, -1.0, 1.0, "");
+    addAndMakeVisible(riseB1);
+    configSlider(riseB1.length, 0.25, 4.0, "");
+    configSlider(riseB1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallB);
-    configSlider(fallB.length, 0.25, 4.0, "");
-    configSlider(fallB.curve, -1.0, 1.0, "");
+    addAndMakeVisible(fallB1);
+    configSlider(fallB1.length, 0.25, 4.0, "");
+    configSlider(fallB1.curve, -1.0, 1.0, "");
 
-    // ---- Double-click reset behaviour -------------------------------------
-    invertAK.slider.setDoubleClickReturnValue(true, 0.0);
-    invertBK.slider.setDoubleClickReturnValue(true, 0.0);
-
-    for (auto *s : {&riseA.curve, &fallA.curve, &riseB.curve, &fallB.curve})
+    // Double-click resets
+    for (auto *s : {&invertA1.slider, &invertB1.slider})
         s->setDoubleClickReturnValue(true, 0.0);
+    for (auto *s : {&riseA1.curve, &fallA1.curve, &riseB1.curve, &fallB1.curve})
+        s->setDoubleClickReturnValue(true, 0.0);
+    phaseK1.slider.setDoubleClickReturnValue(true, 0.0);
 
-    phaseK.slider.setDoubleClickReturnValue(true, 0.0);
+    // Attach to APVTS (lane 1)
+    riseA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseA", riseA1.length);
+    fallA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallA", fallA1.length);
+    riseB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseB", riseB1.length);
+    fallB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallB", fallB1.length);
+    riseA1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseA", riseA1.curve);
+    fallA1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallA", fallA1.curve);
+    riseB1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseB", riseB1.curve);
+    fallB1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallB", fallB1.curve);
+    invertA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertA", invertA1.slider);
+    invertB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertB1.slider);
 
-    // Attach to APVTS
-    // (lengths)
-    riseAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseA", riseA.length);
-    fallAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallA", fallA.length);
-    riseBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseB", riseB.length);
-    fallBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallB", fallB.length);
-    // (curves)
-    riseACurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseA", riseA.curve);
-    fallACurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallA", fallA.curve);
-    riseBCurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseB", riseB.curve);
-    fallBCurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallB", fallB.curve);
-    // (invert A/B)
-    invertAAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertA", invertAK.slider);
-    invertBAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertBK.slider);
+    // --- LANE 2 controls (own knobs & attachments) -------------------------
+    addAndMakeVisible(mixK2);
+    configSlider(mixK2.slider, 0.0, 1.0, "");
+    if (paramExists("lane2.mix"))
+        mix2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.mix", mixK2.slider);
 
-    // --- Random tab ---------------------------------------------------------
-    randomRate.addItemList(juce::StringArray{"1/4", "1/8", "1/16"}, 1);
-    addAndMakeVisible(randomRate);
-    randomRateAtt = std::make_unique<ComboAtt>(processor.apvts, "random.rate", randomRate);
+    addAndMakeVisible(phaseK2);
+    configSlider(phaseK2.slider, 0.0, 360.0, "°");
+    if (paramExists("lane2.phaseDeg"))
+        phase2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.phaseDeg", phaseK2.slider);
 
-    addAndMakeVisible(randomXfadeK);
-    configSlider(randomXfadeK.slider, 5.0, 80.0, "");
-    randomXfadeAtt = std::make_unique<SliderAtt>(processor.apvts, "random.crossfadeMs", randomXfadeK.slider);
+    addAndMakeVisible(invertA2);
+    configSlider(invertA2.slider, -1.0, 1.0, "");
+    addAndMakeVisible(invertB2);
+    configSlider(invertB2.slider, -1.0, 1.0, "");
+    if (paramExists("lane2.invertA"))
+        invertA2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.invertA", invertA2.slider);
+    if (paramExists("lane2.invertB"))
+        invertB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.invertB", invertB2.slider);
 
-    addAndMakeVisible(randomMixK);
-    configSlider(randomMixK.slider, 0.0, 1.0, "");
-    randomMixAtt = std::make_unique<SliderAtt>(processor.apvts, "random.mix", randomMixK.slider);
+    addAndMakeVisible(riseA2);
+    configSlider(riseA2.length, 0.25, 4.0, "");
+    configSlider(riseA2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(fallA2);
+    configSlider(fallA2.length, 0.25, 4.0, "");
+    configSlider(fallA2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(riseB2);
+    configSlider(riseB2.length, 0.25, 4.0, "");
+    configSlider(riseB2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(fallB2);
+    configSlider(fallB2.length, 0.25, 4.0, "");
+    configSlider(fallB2.curve, -1.0, 1.0, "");
+
+    if (paramExists("lane2.curve.riseA"))
+        riseA2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.riseA", riseA2.length);
+    if (paramExists("lane2.curve.fallA"))
+        fallA2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallA", fallA2.length);
+    if (paramExists("lane2.curve.riseB"))
+        riseB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.riseB", riseB2.length);
+    if (paramExists("lane2.curve.fallB"))
+        fallB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallB", fallB2.length);
+
+    if (paramExists("lane2.curv.riseA"))
+        riseA2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseA", riseA2.curve);
+    if (paramExists("lane2.curv.fallA"))
+        fallA2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallA", fallA2.curve);
+    if (paramExists("lane2.curv.riseB"))
+        riseB2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseB", riseB2.curve);
+    if (paramExists("lane2.curv.fallB"))
+        fallB2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallB", fallB2.curve);
+
+    // ---- Double-click reset behaviour (lane 2)
+    for (auto *s : {&invertA2.slider, &invertB2.slider})
+        s->setDoubleClickReturnValue(true, 0.0);
+    for (auto *s : {&riseA2.curve, &fallA2.curve, &riseB2.curve, &fallB2.curve})
+        s->setDoubleClickReturnValue(true, 0.0);
+    phaseK2.slider.setDoubleClickReturnValue(true, 0.0);
 
     // --- Scopes -------------------------------------------------------------
     addAndMakeVisible(lane1Scope2);
+    addAndMakeVisible(lane2Scope3);
     addAndMakeVisible(randomScope3);
 
-    // Update scope when any knob changes
-    auto upd = [this]
+    // **Drive scopes from processor (DSP truth) so curvature/invert apply**
+    lane1Scope2.setEvaluator([this](float ph)
+                             { return processor.evalLane1(ph); });
+    lane2Scope3.setEvaluator([this](float ph)
+                             { return processor.evalLane2Triplet(ph); });
+
+    // Update scopes when any relevant knob changes
+    auto upd1 = [this]
     { updateLane1Scope(); };
-    chainOnValue(riseA.length, upd);
-    chainOnValue(riseA.curve, upd);
-    chainOnValue(fallA.length, upd);
-    chainOnValue(fallA.curve, upd);
-    chainOnValue(riseB.length, upd);
-    chainOnValue(riseB.curve, upd);
-    chainOnValue(fallB.length, upd);
-    chainOnValue(fallB.curve, upd);
-    chainOnValue(invertAK.slider, upd);
-    chainOnValue(invertBK.slider, upd);
-    chainOnValue(phaseK.slider, upd);
+    auto upd2 = [this]
+    { updateLane2Scope(); };
+
+    // Lane 1 chain
+    chainOnValue(riseA1.length, upd1);
+    chainOnValue(riseA1.curve, upd1);
+    chainOnValue(fallA1.length, upd1);
+    chainOnValue(fallA1.curve, upd1);
+    chainOnValue(riseB1.length, upd1);
+    chainOnValue(riseB1.curve, upd1);
+    chainOnValue(fallB1.length, upd1);
+    chainOnValue(fallB1.curve, upd1);
+    chainOnValue(invertA1.slider, upd1);
+    chainOnValue(invertB1.slider, upd1);
+    chainOnValue(phaseK1.slider, upd1);
+
+    // Lane 2 chain
+    chainOnValue(riseA2.length, upd2);
+    chainOnValue(riseA2.curve, upd2);
+    chainOnValue(fallA2.length, upd2);
+    chainOnValue(fallA2.curve, upd2);
+    chainOnValue(riseB2.length, upd2);
+    chainOnValue(riseB2.curve, upd2);
+    chainOnValue(fallB2.length, upd2);
+    chainOnValue(fallB2.curve, upd2);
+    chainOnValue(invertA2.slider, upd2);
+    chainOnValue(invertB2.slider, upd2);
+    chainOnValue(phaseK2.slider, upd2);
 
     laneTabs.setCurrentTabIndex(0, juce::NotificationType::dontSendNotification);
     updateLane1Scope();
+    updateLane2Scope();
     resized();
 }
 
@@ -199,7 +270,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
     bounds.removeFromTop(kGap);
     auto laneCardArea = bounds.removeFromTop(kLaneH);
-    secLane1.setBounds(laneCardArea);
+    secLane.setBounds(laneCardArea);
 
     laneTabs.setBounds(laneCardArea.reduced(12, 12));
     const int tabH = laneTabs.getTabbedButtonBar().getHeight();
@@ -224,41 +295,55 @@ void PinkELFOntsAudioProcessorEditor::resized()
     const int tab = laneTabs.getCurrentTabIndex();
     auto content = laneTabs.getBounds().reduced(16, 16).withTrimmedTop(tabH + 6);
 
-    const bool laneVisible = (tab == 0);
-    const bool randomVisible = (tab == 1);
+    const bool lane1Visible = (tab == 0);
+    const bool lane2Visible = (tab == 1);
+    const bool randomVisible = (tab == 2);
 
-    // Lane 1 widgets
-    mixK.setVisible(laneVisible);
-    phaseK.setVisible(laneVisible);
-    invertAK.setVisible(laneVisible);
-    invertBK.setVisible(laneVisible);
-    riseA.setVisible(laneVisible);
-    fallA.setVisible(laneVisible);
-    riseB.setVisible(laneVisible);
-    fallB.setVisible(laneVisible);
-    lane1Scope2.setVisible(laneVisible);
+    // LANE 1 controls visibility
+    mixK1.setVisible(lane1Visible);
+    phaseK1.setVisible(lane1Visible);
+    invertA1.setVisible(lane1Visible);
+    invertB1.setVisible(lane1Visible);
+    riseA1.setVisible(lane1Visible);
+    fallA1.setVisible(lane1Visible);
+    riseB1.setVisible(lane1Visible);
+    fallB1.setVisible(lane1Visible);
+    lane1Scope2.setVisible(lane1Visible);
 
-    // Random widgets
+    // LANE 2 controls visibility
+    mixK2.setVisible(lane2Visible);
+    phaseK2.setVisible(lane2Visible);
+    invertA2.setVisible(lane2Visible);
+    invertB2.setVisible(lane2Visible);
+    riseA2.setVisible(lane2Visible);
+    fallA2.setVisible(lane2Visible);
+    riseB2.setVisible(lane2Visible);
+    fallB2.setVisible(lane2Visible);
+    lane2Scope3.setVisible(lane2Visible);
+
+    // Random (placeholders)
     randomRate.setVisible(randomVisible);
     randomXfadeK.setVisible(randomVisible);
     randomMixK.setVisible(randomVisible);
     randomScope3.setVisible(randomVisible);
 
-    if (laneVisible)
+    auto layoutLane = [&](bool isLane1)
     {
-        // Left controls / Right scope
         auto r = content;
 
-        // Fixed 4-column grid: top knobs over dual knobs
+        // Left controls / Right scope (identical layout on both tabs)
         const int cols = 4;
-        const int colW = kDual; // match dual width so columns line up cleanly
+        const int colW = kDual;
         const int colGap = kGap;
         const int gridW = cols * colW + (cols - 1) * colGap;
 
         const int controlsW = gridW + 4;
         auto controls = r.removeFromLeft(controlsW);
         auto scope = r.reduced(8, 6);
-        lane1Scope2.setBounds(scope);
+
+        auto &scopeView = isLane1 ? static_cast<juce::Component &>(lane1Scope2)
+                                  : static_cast<juce::Component &>(lane2Scope3);
+        scopeView.setBounds(scope);
 
         // Row 0: Mix | Phase | Invert A | Invert B
         auto row0 = controls.removeFromTop(kKnob);
@@ -267,10 +352,20 @@ void PinkELFOntsAudioProcessorEditor::resized()
             k.setBounds(row0.removeFromLeft(colW));
             row0.removeFromLeft(colGap);
         };
-        placeTop(mixK);
-        placeTop(phaseK);
-        placeTop(invertAK);
-        placeTop(invertBK);
+        if (isLane1)
+        {
+            placeTop(mixK1);
+            placeTop(phaseK1);
+            placeTop(invertA1);
+            placeTop(invertB1);
+        }
+        else
+        {
+            placeTop(mixK2);
+            placeTop(phaseK2);
+            placeTop(invertA2);
+            placeTop(invertB2);
+        }
 
         controls.removeFromTop(kGap);
 
@@ -281,11 +376,26 @@ void PinkELFOntsAudioProcessorEditor::resized()
             dk.setBounds(rowDual.removeFromLeft(colW));
             rowDual.removeFromLeft(colGap);
         };
-        placeDual(riseA);
-        placeDual(fallA);
-        placeDual(riseB);
-        placeDual(fallB);
-    }
+        if (isLane1)
+        {
+            placeDual(riseA1);
+            placeDual(fallA1);
+            placeDual(riseB1);
+            placeDual(fallB1);
+        }
+        else
+        {
+            placeDual(riseA2);
+            placeDual(fallA2);
+            placeDual(riseB2);
+            placeDual(fallB2);
+        }
+    };
+
+    if (lane1Visible)
+        layoutLane(true);
+    else if (lane2Visible)
+        layoutLane(false);
     else
     {
         // Random (placeholder layout)
@@ -312,21 +422,12 @@ void PinkELFOntsAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadca
 
 void PinkELFOntsAudioProcessorEditor::updateLane1Scope()
 {
-    LFO::Shape s;
-    s.riseA = (float)riseA.length.getValue();
-    s.fallA = (float)fallA.length.getValue();
-    s.riseB = (float)riseB.length.getValue();
-    s.fallB = (float)fallB.length.getValue();
+    // evaluator pulls from APVTS in processor; just repaint
+    lane1Scope2.repaint();
+}
 
-    s.curvRiseA = (float)riseA.curve.getValue();
-    s.curvFallA = (float)fallA.curve.getValue();
-    s.curvRiseB = (float)riseB.curve.getValue();
-    s.curvFallB = (float)fallB.curve.getValue();
-
-    // Map UI [-1..1] -> shape [0..1]; center (0) = no inversion
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)invertAK.slider.getValue()));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)invertBK.slider.getValue()));
-
-    lane1Scope2.setNumTriangles(2); // two triangles per lane-1 cycle
-    lane1Scope2.setFromShape(s, (float)phaseK.slider.getValue());
+void PinkELFOntsAudioProcessorEditor::updateLane2Scope()
+{
+    // evaluator pulls from APVTS in processor; just repaint
+    lane2Scope3.repaint();
 }
