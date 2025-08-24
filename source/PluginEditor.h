@@ -370,7 +370,6 @@ private:
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
-    SwitchMatrix switches; // L1..L9 + Random
 
     // Lane 1 controls
     Knob mixK1{"Mix"};
@@ -448,8 +447,6 @@ private:
 
     std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
-
-    std::unique_ptr<ButtonAtt> lane1OnAtt, lane2OnAtt, lane3OnAtt, lane4OnAtt, lane5OnAtt, lane6OnAtt, randomOnAtt;
 
     // Lane 1 attaches
     std::unique_ptr<SliderAtt> mix1Att, phase1Att;

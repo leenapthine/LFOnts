@@ -116,17 +116,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(phaseNudgeK.slider, -30.0, 30.0, "°");
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
-    // Switch matrix in Output card
-    addAndMakeVisible(switches);
-    switches.setAlwaysOnTop(true);
-    lane1OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane1.enabled", switches.l1);
-    lane2OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane2.enabled", switches.l2);
-    lane3OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane3.enabled", switches.l3);
-    lane4OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane4.enabled", switches.l4);
-    lane5OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane5.enabled", switches.l5);
-    lane6OnAtt = std::make_unique<ButtonAtt>(processor.apvts, "lane6.enabled", switches.l6);
-    randomOnAtt = std::make_unique<ButtonAtt>(processor.apvts, "random.enabled", switches.random);
-
     // --- LANE 1 controls ----------------------------------------------------
     addAndMakeVisible(mixK1);
     configSlider(mixK1.slider, 0.0, 1.0, "");
@@ -663,9 +652,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
         phaseNudgeK.setBounds(rowA.removeFromLeft(kKnob));
 
         r.removeFromTop(kGap);
-
-        // Row B: Switch matrix
-        switches.setBounds(r.removeFromTop(80)); // ~2 rows of pill toggles
     }
 
     // --- Tab content --------------------------------------------------------

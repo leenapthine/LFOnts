@@ -18,51 +18,48 @@ struct PinkLookAndFeel : juce::LookAndFeel_V4
         setColour(juce::TextButton::textColourOffId, C::fromString("0xFFE6EBF2"));
     }
 
-    // Flat linear slider (supports vertical & horizontal)
+    // LookAndFeel.h  — REPLACE your drawLinearSlider with this version
     void drawLinearSlider(juce::Graphics &g, int x, int y, int w, int h,
-                          float sliderPos, float min, float max,
+                          float sliderPos, float /*min*/, float /*max*/,
                           const juce::Slider::SliderStyle style, juce::Slider &s) override
     {
-        auto track = findColour(juce::Slider::trackColourId);
         auto back = findColour(juce::Slider::backgroundColourId);
+        auto track = findColour(juce::Slider::trackColourId);
         auto thumb = findColour(juce::Slider::thumbColourId);
 
-        const bool isVertical = (style == juce::Slider::LinearVertical) || (h > w * 1.2f);
-
-        if (isVertical)
+        if (style == juce::Slider::LinearVertical)
         {
-            auto r = juce::Rectangle<float>(float(x), float(y), float(w), float(h)).reduced(8, 10);
-            // background rail
+            // track area
+            auto r = juce::Rectangle<float>(float(x), float(y), float(w), float(h)).reduced(8, 6);
+
+            // vertical track (visible)
+            const float trackW = 6.0f;
+            const float cx = r.getCentreX();
+            juce::Rectangle<float> trackRect(cx - trackW * 0.5f, r.getY(), trackW, r.getHeight());
             g.setColour(back);
-            g.fillRoundedRectangle(r.withWidth(6.0f).withCentre({r.getCentreX(), r.getCentreY()}), 3.0f);
+            g.fillRoundedRectangle(trackRect, 3.0f);
+            g.setColour(track.withAlpha(0.95f));
+            g.fillRoundedRectangle(trackRect.reduced(1.0f), 3.0f);
 
-            // filled amount
-            const float t = juce::jlimit(0.0f, 1.0f, (sliderPos - min) / (max - min));
-            auto filled = r.removeFromBottom(r.getHeight() * t);
-            g.setColour(track);
-            g.fillRoundedRectangle(filled.withWidth(6.0f).withCentre({r.getCentreX(), filled.getCentreY()}), 3.0f);
-
-            // thumb cap
-            juce::Rectangle<float> thumbR(14.0f, 22.0f);
-            thumbR.setCentre(r.getCentreX(), filled.getY());
+            // thumb uses sliderPos DIRECTLY (it's already a pixel Y)
+            const float yThumb = juce::jlimit(r.getY(), r.getBottom(), sliderPos);
+            juce::Rectangle<float> thumbR(20.0f, 12.0f);
+            thumbR.setCentre(cx, yThumb);
             g.setColour(thumb);
-            g.fillRoundedRectangle(thumbR, 7.0f);
+            g.fillRoundedRectangle(thumbR, 6.0f);
             return;
         }
 
-        // ---- Horizontal (unchanged look) ----
-        auto r = juce::Rectangle<float>(float(x), float(y) + h * 0.5f - 3.0f, float(w), 6.0f);
-        auto t = juce::jlimit(0.0f, 1.0f, (sliderPos - min) / (max - min));
-        auto rw = r.withWidth(r.getWidth() * t);
-
+        // keep your horizontal style for line sliders used elsewhere
+        auto rr = juce::Rectangle<float>(float(x), float(y) + h * 0.5f - 3.0f, float(w), 6.0f);
+        // sliderPos is a pixel X here; map into rr
+        float xThumb = juce::jlimit(rr.getX(), rr.getRight(), sliderPos);
         g.setColour(back);
-        g.fillRoundedRectangle(r, 3.0f);
-
+        g.fillRoundedRectangle(rr, 3.0f);
         g.setColour(track);
-        g.fillRoundedRectangle(rw, 3.0f);
-
+        g.fillRoundedRectangle({rr.getX(), rr.getY(), xThumb - rr.getX(), rr.getHeight()}, 3.0f);
         g.setColour(thumb);
-        g.fillEllipse(rw.getRight() - 6.0f, r.getCentreY() - 6.0f, 12.0f, 12.0f);
+        g.fillEllipse(xThumb - 6.0f, rr.getCentreY() - 6.0f, 12.0f, 12.0f);
     }
 
     // Rotary knob with progress ring + dot
@@ -106,23 +103,29 @@ struct PinkLookAndFeel : juce::LookAndFeel_V4
         g.fillEllipse(dot);
     }
 
-    void drawToggleButton(juce::Graphics &g, juce::ToggleButton &b, bool, bool) override
+    void drawToggleButton(juce::Graphics &g, juce::ToggleButton &b,
+                          bool /*shouldDrawButtonAsHighlighted*/,
+                          bool /*shouldDrawButtonAsDown*/) override
     {
         auto r = b.getLocalBounds().toFloat();
-        auto on = b.getToggleState();
 
-        auto box = r.removeFromLeft(18).reduced(2);
-        g.setColour(findColour(juce::Slider::backgroundColourId));
-        g.fillRoundedRectangle(box, 3.0f);
-        if (on)
+        // Always draw the base pill
+        auto baseColour = b.getToggleState()
+                              ? findColour(juce::Slider::thumbColourId) // pink
+                              : juce::Colour(0xFF444852);               // light grey
+
+        g.setColour(baseColour);
+        g.fillEllipse(r.reduced(4.0f)); // dot look
+
+        // Optional: text if you ever give the button a label
+        if (b.getButtonText().isNotEmpty())
         {
-            g.setColour(findColour(juce::Slider::thumbColourId));
-            g.fillEllipse(box.reduced(3));
+            g.setColour(findColour(juce::Label::textColourId));
+            g.setFont(juce::Font(13.0f));
+            g.drawText(b.getButtonText(),
+                       r.reduced(20, 0),
+                       juce::Justification::centredLeft);
         }
-
-        g.setColour(findColour(juce::Label::textColourId));
-        g.setFont(juce::Font(juce::FontOptions(13.0f)));
-        g.drawText(b.getButtonText(), r.reduced(4, 0), juce::Justification::centredLeft);
     }
 
     void drawTabButton(juce::TabBarButton &button,
