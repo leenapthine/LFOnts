@@ -462,17 +462,17 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
 
     // Update scopes when any relevant knob changes
     auto upd1 = [this]
-    { updateLane1Scope(); };
+    { updateLane1Scope(); updateOutputMixScope(); };
     auto upd2 = [this]
-    { updateLane2Scope(); };
+    { updateLane2Scope();  updateOutputMixScope(); };
     auto upd3 = [this]
-    { updateLane3Scope(); };
+    { updateLane3Scope(); updateOutputMixScope(); };
     auto upd4 = [this]
-    { updateLane4Scope(); };
+    { updateLane4Scope();  updateOutputMixScope(); };
     auto upd5 = [this]
-    { updateLane5Scope(); };
+    { updateLane5Scope(); updateOutputMixScope(); };
     auto upd6 = [this]
-    { updateLane6Scope(); };
+    { updateLane6Scope(); updateOutputMixScope(); };
 
     // Lane 1 chain
     chainOnValue(riseA1.length, upd1);

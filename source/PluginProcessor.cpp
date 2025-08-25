@@ -602,17 +602,21 @@ float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
         return m * v; // simple linear
     };
 
+    // wrap phase 0..1
+    auto wrap01 = [](float x)
+    { return x - std::floor(x); };
+
     // Evaluate each lane’s shape at the nudged phase
     float sum = 0.0f;
-    sum += laneMix(1, evalLane1(nudge));
-    sum += laneMix(2, evalLane2Triplet(nudge));
-    sum += laneMix(3, evalLane3(nudge));
-    sum += laneMix(4, evalLane4Triplet(nudge));
-    sum += laneMix(5, evalLane5(nudge));
-    sum += laneMix(6, evalLane6Triplet(nudge));
-    // lanes 7–8 when you add them:
-    // sum += laneMix(7, evalLane7(...));
-    // sum += laneMix(8, evalLane8(...));
+    sum += laneMix(1, evalLane1(wrap01(nudge * 1.0f)));        // L1 1/4   ×1
+    sum += laneMix(2, evalLane2Triplet(wrap01(nudge * 1.0f))); // L2 1/4T  ×1
+    sum += laneMix(3, evalLane3(wrap01(nudge * 2.0f)));        // L3 1/8   ×2
+    sum += laneMix(4, evalLane4Triplet(wrap01(nudge * 2.0f))); // L4 1/8T  ×2
+    sum += laneMix(5, evalLane5(wrap01(nudge * 4.0f)));        // L5 1/16  ×4
+    sum += laneMix(6, evalLane6Triplet(wrap01(nudge * 4.0f))); // L6 1/16T ×4
+    // lanes 7–8 when added:
+    // sum += laneMix(7, evalLane7        (wrap01(nudge * 8.0f)));
+    // sum += laneMix(8, evalLane8Triplet (wrap01(nudge * 8.0f)));
 
     // depth scales the whole thing
     const float depth = apvts.getRawParameterValue("global.depth")->load(); // 0..1
