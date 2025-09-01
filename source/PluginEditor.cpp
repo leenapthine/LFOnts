@@ -117,10 +117,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
     // --- LANE 1 controls ----------------------------------------------------
-    addAndMakeVisible(mixK1);
-    configSlider(mixK1.slider, 0.0, 1.0, "");
-    mix1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.mix", mixK1.slider);
-
     addAndMakeVisible(phaseK1);
     configSlider(phaseK1.slider, 0.0, 360.0, "°");
     phase1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.phaseDeg", phaseK1.slider);
@@ -130,47 +126,53 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(invertB1);
     configSlider(invertB1.slider, -1.0, 1.0, "");
 
-    addAndMakeVisible(riseA1);
-    configSlider(riseA1.length, 0.25, 4.0, "");
-    configSlider(riseA1.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA1);
+    configSlider(timeA1.length, 0.25, 4.0, "");
+    configSlider(timeA1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallA1);
-    configSlider(fallA1.length, 0.25, 4.0, "");
-    configSlider(fallA1.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB1);
+    configSlider(timeB1.length, 0.25, 4.0, "");
+    configSlider(timeB1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(riseB1);
-    configSlider(riseB1.length, 0.25, 4.0, "");
-    configSlider(riseB1.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityA1);
+    configSlider(intensityA1.length, 0.0, 1.0, "");
+    configSlider(intensityA1.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallB1);
-    configSlider(fallB1.length, 0.25, 4.0, "");
-    configSlider(fallB1.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB1);
+    configSlider(intensityB1.length, 0.0, 1.0, "");
+    configSlider(intensityB1.curve, -1.0, 1.0, "");
 
     // Double-click resets
     for (auto *s : {&invertA1.slider, &invertB1.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA1.curve, &fallA1.curve, &riseB1.curve, &fallB1.curve})
+    for (auto *s : {&timeA1.curve, &timeB1.curve, &intensityA1.curve, &intensityB1.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK1.slider.setDoubleClickReturnValue(true, 0.0);
 
-    // Attach to APVTS (lane 1)
-    riseA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseA", riseA1.length);
-    fallA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallA", fallA1.length);
-    riseB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.riseB", riseB1.length);
-    fallB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallB", fallB1.length);
-    riseA1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseA", riseA1.curve);
-    fallA1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallA", fallA1.curve);
-    riseB1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseB", riseB1.curve);
-    fallB1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallB", fallB1.curve);
+    // --- Attach to APVTS (lane 1) ----------------------------------------------
+    // Phase / invert
+    phase1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.phaseDeg", phaseK1.slider);
     invertA1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertA", invertA1.slider);
     invertB1Att = std::make_unique<SliderAtt>(processor.apvts, "lane1.invertB", invertB1.slider);
 
-    // --- LANE 2 controls (own knobs & attachments) -------------------------
-    addAndMakeVisible(mixK2);
-    configSlider(mixK2.slider, 0.0, 1.0, "");
-    if (paramExists("lane2.mix"))
-        mix2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.mix", mixK2.slider);
+    // Time A replaces (riseA + fallA): drive both lengths + both curvature params
+    timeA1LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.riseA", timeA1.length);
+    timeA1LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallA", timeA1.length); // mirror
+    timeA1CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseA", timeA1.curve);
 
+    // Time B replaces (riseB + fallB)
+    timeB1LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1riseB", timeB1.length);
+    timeB1LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curve.fallB", timeB1.length); // mirror
+    timeB1CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallA", timeB1.curve);
+
+    // Intensities: outer length = amplitude per half; inner curve drives only the FALL edge
+    intensityA1LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.intensityA", intensityA1.length);
+    intensityA1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.riseB", intensityA1.curve);
+
+    intensityB1LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.intensityB", intensityB1.length);
+    intensityB1CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane1.curv.fallB", intensityB1.curve);
+
+    // --- LANE 2 controls ----------------------------------------------------
     addAndMakeVisible(phaseK2);
     configSlider(phaseK2.slider, 0.0, 360.0, "°");
     if (paramExists("lane2.phaseDeg"))
@@ -185,99 +187,94 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     if (paramExists("lane2.invertB"))
         invertB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.invertB", invertB2.slider);
 
-    addAndMakeVisible(riseA2);
-    configSlider(riseA2.length, 0.25, 4.0, "");
-    configSlider(riseA2.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallA2);
-    configSlider(fallA2.length, 0.25, 4.0, "");
-    configSlider(fallA2.curve, -1.0, 1.0, "");
-    addAndMakeVisible(riseB2);
-    configSlider(riseB2.length, 0.25, 4.0, "");
-    configSlider(riseB2.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallB2);
-    configSlider(fallB2.length, 0.25, 4.0, "");
-    configSlider(fallB2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA2);
+    configSlider(timeA2.length, 0.25, 4.0, "");
+    configSlider(timeA2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB2);
+    configSlider(timeB2.length, 0.25, 4.0, "");
+    configSlider(timeB2.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane2.curve.riseA"))
-        riseA2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.riseA", riseA2.length);
-    if (paramExists("lane2.curve.fallA"))
-        fallA2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallA", fallA2.length);
-    if (paramExists("lane2.curve.riseB"))
-        riseB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.riseB", riseB2.length);
-    if (paramExists("lane2.curve.fallB"))
-        fallB2Att = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallB", fallB2.length);
+    addAndMakeVisible(intensityA2);
+    configSlider(intensityA2.length, 0.0, 1.0, "");
+    configSlider(intensityA2.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB2);
+    configSlider(intensityB2.length, 0.0, 1.0, "");
+    configSlider(intensityB2.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane2.curv.riseA"))
-        riseA2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseA", riseA2.curve);
-    if (paramExists("lane2.curv.fallA"))
-        fallA2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallA", fallA2.curve);
-    if (paramExists("lane2.curv.riseB"))
-        riseB2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseB", riseB2.curve);
-    if (paramExists("lane2.curv.fallB"))
-        fallB2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallB", fallB2.curve);
-
-    // ---- Double-click reset behaviour (lane 2)
+    // Double-click resets
     for (auto *s : {&invertA2.slider, &invertB2.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA2.curve, &fallA2.curve, &riseB2.curve, &fallB2.curve})
+    for (auto *s : {&timeA2.curve, &timeB2.curve, &intensityA2.curve, &intensityB2.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK2.slider.setDoubleClickReturnValue(true, 0.0);
 
-    // --- LANE 3 controls ----------------------------------------------------
-    addAndMakeVisible(mixK3);
-    configSlider(mixK3.slider, 0.0, 1.0, "");
-    mix3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.mix", mixK3.slider);
+    // --- Attach to APVTS (lane 2) ------------------------------------------
+    timeA2LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.riseA", timeA2.length);
+    timeA2LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallA", timeA2.length); // mirror length
+    timeA2CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseA", timeA2.curve);
 
+    timeB2LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.riseB", timeB2.length);
+    timeB2LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curve.fallB", timeB2.length); // mirror length
+    timeB2CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallA", timeB2.curve);
+
+    intensityA2LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.intensityA", intensityA2.length);
+    intensityA2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.riseB", intensityA2.curve);
+
+    intensityB2LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.intensityB", intensityB2.length);
+    intensityB2CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane2.curv.fallB", intensityB2.curve);
+
+    // --- LANE 3 controls ----------------------------------------------------
     addAndMakeVisible(phaseK3);
     configSlider(phaseK3.slider, 0.0, 360.0, "°");
-    phase3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.phaseDeg", phaseK3.slider);
+    if (paramExists("lane3.phaseDeg"))
+        phase3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.phaseDeg", phaseK3.slider);
 
     addAndMakeVisible(invertA3);
     configSlider(invertA3.slider, -1.0, 1.0, "");
     addAndMakeVisible(invertB3);
     configSlider(invertB3.slider, -1.0, 1.0, "");
+    if (paramExists("lane3.invertA"))
+        invertA3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.invertA", invertA3.slider);
+    if (paramExists("lane3.invertB"))
+        invertB3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.invertB", invertB3.slider);
 
-    addAndMakeVisible(riseA3);
-    configSlider(riseA3.length, 0.25, 4.0, "");
-    configSlider(riseA3.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA3);
+    configSlider(timeA3.length, 0.25, 4.0, "");
+    configSlider(timeA3.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB3);
+    configSlider(timeB3.length, 0.25, 4.0, "");
+    configSlider(timeB3.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallA3);
-    configSlider(fallA3.length, 0.25, 4.0, "");
-    configSlider(fallA3.curve, -1.0, 1.0, "");
-
-    addAndMakeVisible(riseB3);
-    configSlider(riseB3.length, 0.25, 4.0, "");
-    configSlider(riseB3.curve, -1.0, 1.0, "");
-
-    addAndMakeVisible(fallB3);
-    configSlider(fallB3.length, 0.25, 4.0, "");
-    configSlider(fallB3.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityA3);
+    configSlider(intensityA3.length, 0.0, 1.0, "");
+    configSlider(intensityA3.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB3);
+    configSlider(intensityB3.length, 0.0, 1.0, "");
+    configSlider(intensityB3.curve, -1.0, 1.0, "");
 
     // Double-click resets
     for (auto *s : {&invertA3.slider, &invertB3.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA3.curve, &fallA3.curve, &riseB3.curve, &fallB3.curve})
+    for (auto *s : {&timeA3.curve, &timeB3.curve, &intensityA3.curve, &intensityB3.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK3.slider.setDoubleClickReturnValue(true, 0.0);
 
-    // Attach to APVTS (lane 3)
-    riseA3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.riseA", riseA3.length);
-    fallA3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.fallA", fallA3.length);
-    riseB3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.riseB", riseB3.length);
-    fallB3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.fallB", fallB3.length);
-    riseA3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.riseA", riseA3.curve);
-    fallA3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.fallA", fallA3.curve);
-    riseB3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.riseB", riseB3.curve);
-    fallB3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.fallB", fallB3.curve);
-    invertA3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.invertA", invertA3.slider);
-    invertB3Att = std::make_unique<SliderAtt>(processor.apvts, "lane3.invertB", invertB3.slider);
+    // --- Attach to APVTS (lane 3) ------------------------------------------
+    timeA3LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.riseA", timeA3.length);
+    timeA3LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.fallA", timeA3.length);
+    timeA3CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.riseA", timeA3.curve);
 
-    // --- LANE 4 controls (own knobs & attachments) -------------------------
-    addAndMakeVisible(mixK4);
-    configSlider(mixK4.slider, 0.0, 1.0, "");
-    if (paramExists("lane4.mix"))
-        mix4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.mix", mixK4.slider);
+    timeB3LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.riseB", timeB3.length);
+    timeB3LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curve.fallB", timeB3.length);
+    timeB3CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.fallA", timeB3.curve);
 
+    intensityA3LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.intensityA", intensityA3.length);
+    intensityA3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.riseB", intensityA3.curve);
+
+    intensityB3LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.intensityB", intensityB3.length);
+    intensityB3CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane3.curv.fallB", intensityB3.curve);
+
+    // --- LANE 4 controls ----------------------------------------------------
     addAndMakeVisible(phaseK4);
     configSlider(phaseK4.slider, 0.0, 360.0, "°");
     if (paramExists("lane4.phaseDeg"))
@@ -292,99 +289,94 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     if (paramExists("lane4.invertB"))
         invertB4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.invertB", invertB4.slider);
 
-    addAndMakeVisible(riseA4);
-    configSlider(riseA4.length, 0.25, 4.0, "");
-    configSlider(riseA4.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallA4);
-    configSlider(fallA4.length, 0.25, 4.0, "");
-    configSlider(fallA4.curve, -1.0, 1.0, "");
-    addAndMakeVisible(riseB4);
-    configSlider(riseB4.length, 0.25, 4.0, "");
-    configSlider(riseB4.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallB4);
-    configSlider(fallB4.length, 0.25, 4.0, "");
-    configSlider(fallB4.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA4);
+    configSlider(timeA4.length, 0.25, 4.0, "");
+    configSlider(timeA4.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB4);
+    configSlider(timeB4.length, 0.25, 4.0, "");
+    configSlider(timeB4.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane4.curve.riseA"))
-        riseA4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.riseA", riseA4.length);
-    if (paramExists("lane4.curve.fallA"))
-        fallA4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.fallA", fallA4.length);
-    if (paramExists("lane4.curve.riseB"))
-        riseB4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.riseB", riseB4.length);
-    if (paramExists("lane4.curve.fallB"))
-        fallB4Att = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.fallB", fallB4.length);
+    addAndMakeVisible(intensityA4);
+    configSlider(intensityA4.length, 0.0, 1.0, "");
+    configSlider(intensityA4.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB4);
+    configSlider(intensityB4.length, 0.0, 1.0, "");
+    configSlider(intensityB4.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane4.curv.riseA"))
-        riseA4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.riseA", riseA4.curve);
-    if (paramExists("lane4.curv.fallA"))
-        fallA4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.fallA", fallA4.curve);
-    if (paramExists("lane4.curv.riseB"))
-        riseB4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.riseB", riseB4.curve);
-    if (paramExists("lane4.curv.fallB"))
-        fallB4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.fallB", fallB4.curve);
-
-    // ---- Double-click reset behaviour (lane 4)
+    // Double-click resets
     for (auto *s : {&invertA4.slider, &invertB4.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA4.curve, &fallA4.curve, &riseB4.curve, &fallB4.curve})
+    for (auto *s : {&timeA4.curve, &timeB4.curve, &intensityA4.curve, &intensityB4.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK4.slider.setDoubleClickReturnValue(true, 0.0);
 
-    // --- LANE 5 controls ----------------------------------------------------
-    addAndMakeVisible(mixK5);
-    configSlider(mixK5.slider, 0.0, 1.0, "");
-    mix5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.mix", mixK5.slider);
+    // --- Attach to APVTS (lane 4) ------------------------------------------
+    timeA4LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.riseA", timeA4.length);
+    timeA4LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.fallA", timeA4.length);
+    timeA4CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.riseA", timeA4.curve);
 
+    timeB4LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.riseB", timeB4.length);
+    timeB4LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curve.fallB", timeB4.length);
+    timeB4CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.fallA", timeB4.curve);
+
+    intensityA4LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.intensityA", intensityA4.length);
+    intensityA4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.riseB", intensityA4.curve);
+
+    intensityB4LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.intensityB", intensityB4.length);
+    intensityB4CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane4.curv.fallB", intensityB4.curve);
+
+    // --- LANE 5 controls ----------------------------------------------------
     addAndMakeVisible(phaseK5);
     configSlider(phaseK5.slider, 0.0, 360.0, "°");
-    phase5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.phaseDeg", phaseK5.slider);
+    if (paramExists("lane5.phaseDeg"))
+        phase5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.phaseDeg", phaseK5.slider);
 
     addAndMakeVisible(invertA5);
     configSlider(invertA5.slider, -1.0, 1.0, "");
     addAndMakeVisible(invertB5);
     configSlider(invertB5.slider, -1.0, 1.0, "");
+    if (paramExists("lane5.invertA"))
+        invertA5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.invertA", invertA5.slider);
+    if (paramExists("lane5.invertB"))
+        invertB5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.invertB", invertB5.slider);
 
-    addAndMakeVisible(riseA5);
-    configSlider(riseA5.length, 0.25, 4.0, "");
-    configSlider(riseA5.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA5);
+    configSlider(timeA5.length, 0.25, 4.0, "");
+    configSlider(timeA5.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB5);
+    configSlider(timeB5.length, 0.25, 4.0, "");
+    configSlider(timeB5.curve, -1.0, 1.0, "");
 
-    addAndMakeVisible(fallA5);
-    configSlider(fallA5.length, 0.25, 4.0, "");
-    configSlider(fallA5.curve, -1.0, 1.0, "");
-
-    addAndMakeVisible(riseB5);
-    configSlider(riseB5.length, 0.25, 4.0, "");
-    configSlider(riseB5.curve, -1.0, 1.0, "");
-
-    addAndMakeVisible(fallB5);
-    configSlider(fallB5.length, 0.25, 4.0, "");
-    configSlider(fallB5.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityA5);
+    configSlider(intensityA5.length, 0.0, 1.0, "");
+    configSlider(intensityA5.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB5);
+    configSlider(intensityB5.length, 0.0, 1.0, "");
+    configSlider(intensityB5.curve, -1.0, 1.0, "");
 
     // Double-click resets
     for (auto *s : {&invertA5.slider, &invertB5.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA5.curve, &fallA5.curve, &riseB5.curve, &fallB5.curve})
+    for (auto *s : {&timeA5.curve, &timeB5.curve, &intensityA5.curve, &intensityB5.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK5.slider.setDoubleClickReturnValue(true, 0.0);
 
-    // Attach to APVTS (lane 5)
-    riseA5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.riseA", riseA5.length);
-    fallA5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.fallA", fallA5.length);
-    riseB5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.riseB", riseB5.length);
-    fallB5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.fallB", fallB5.length);
-    riseA5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.riseA", riseA5.curve);
-    fallA5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.fallA", fallA5.curve);
-    riseB5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.riseB", riseB5.curve);
-    fallB5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.fallB", fallB5.curve);
-    invertA5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.invertA", invertA5.slider);
-    invertB5Att = std::make_unique<SliderAtt>(processor.apvts, "lane5.invertB", invertB5.slider);
+    // --- Attach to APVTS (lane 5) ------------------------------------------
+    timeA5LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.riseA", timeA5.length);
+    timeA5LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.fallA", timeA5.length);
+    timeA5CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.riseA", timeA5.curve);
 
-    // --- LANE 6 controls (own knobs & attachments) -------------------------
-    addAndMakeVisible(mixK6);
-    configSlider(mixK6.slider, 0.0, 1.0, "");
-    if (paramExists("lane6.mix"))
-        mix6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.mix", mixK6.slider);
+    timeB5LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.riseB", timeB5.length);
+    timeB5LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curve.fallB", timeB5.length);
+    timeB5CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.fallA", timeB5.curve);
 
+    intensityA5LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.intensityA", intensityA5.length);
+    intensityA5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.riseB", intensityA5.curve);
+
+    intensityB5LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.intensityB", intensityB5.length);
+    intensityB5CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane5.curv.fallB", intensityB5.curve);
+
+    // --- LANE 6 controls ----------------------------------------------------
     addAndMakeVisible(phaseK6);
     configSlider(phaseK6.slider, 0.0, 360.0, "°");
     if (paramExists("lane6.phaseDeg"))
@@ -399,43 +391,41 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     if (paramExists("lane6.invertB"))
         invertB6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.invertB", invertB6.slider);
 
-    addAndMakeVisible(riseA6);
-    configSlider(riseA6.length, 0.25, 4.0, "");
-    configSlider(riseA6.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallA6);
-    configSlider(fallA6.length, 0.25, 4.0, "");
-    configSlider(fallA6.curve, -1.0, 1.0, "");
-    addAndMakeVisible(riseB6);
-    configSlider(riseB6.length, 0.25, 4.0, "");
-    configSlider(riseB6.curve, -1.0, 1.0, "");
-    addAndMakeVisible(fallB6);
-    configSlider(fallB6.length, 0.25, 4.0, "");
-    configSlider(fallB6.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeA6);
+    configSlider(timeA6.length, 0.25, 4.0, "");
+    configSlider(timeA6.curve, -1.0, 1.0, "");
+    addAndMakeVisible(timeB6);
+    configSlider(timeB6.length, 0.25, 4.0, "");
+    configSlider(timeB6.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane6.curve.riseA"))
-        riseA6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.riseA", riseA6.length);
-    if (paramExists("lane6.curve.fallA"))
-        fallA6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.fallA", fallA6.length);
-    if (paramExists("lane6.curve.riseB"))
-        riseB6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.riseB", riseB6.length);
-    if (paramExists("lane6.curve.fallB"))
-        fallB6Att = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.fallB", fallB6.length);
+    addAndMakeVisible(intensityA6);
+    configSlider(intensityA6.length, 0.0, 1.0, "");
+    configSlider(intensityA6.curve, -1.0, 1.0, "");
+    addAndMakeVisible(intensityB6);
+    configSlider(intensityB6.length, 0.0, 1.0, "");
+    configSlider(intensityB6.curve, -1.0, 1.0, "");
 
-    if (paramExists("lane6.curv.riseA"))
-        riseA6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.riseA", riseA6.curve);
-    if (paramExists("lane6.curv.fallA"))
-        fallA6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.fallA", fallA6.curve);
-    if (paramExists("lane6.curv.riseB"))
-        riseB6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.riseB", riseB6.curve);
-    if (paramExists("lane6.curv.fallB"))
-        fallB6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.fallB", fallB6.curve);
-
-    // ---- Double-click reset behaviour (lane 6)
+    // Double-click resets
     for (auto *s : {&invertA6.slider, &invertB6.slider})
         s->setDoubleClickReturnValue(true, 0.0);
-    for (auto *s : {&riseA6.curve, &fallA6.curve, &riseB6.curve, &fallB6.curve})
+    for (auto *s : {&timeA6.curve, &timeB6.curve, &intensityA6.curve, &intensityB6.curve})
         s->setDoubleClickReturnValue(true, 0.0);
     phaseK6.slider.setDoubleClickReturnValue(true, 0.0);
+
+    // --- Attach to APVTS (lane 6) ------------------------------------------
+    timeA6LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.riseA", timeA6.length);
+    timeA6LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.fallA", timeA6.length);
+    timeA6CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.riseA", timeA6.curve);
+
+    timeB6LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.riseB", timeB6.length);
+    timeB6LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curve.fallB", timeB6.length);
+    timeB6CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.fallA", timeB6.curve);
+
+    intensityA6LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.intensityA", intensityA6.length);
+    intensityA6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.riseB", intensityA6.curve);
+
+    intensityB6LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.intensityB", intensityB6.length);
+    intensityB6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.fallB", intensityB6.curve);
 
     // --- Scopes -------------------------------------------------------------
     addAndMakeVisible(lane1Scope2);
@@ -475,79 +465,79 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     { updateLane6Scope(); updateOutputMixScope(); };
 
     // Lane 1 chain
-    chainOnValue(riseA1.length, upd1);
-    chainOnValue(riseA1.curve, upd1);
-    chainOnValue(fallA1.length, upd1);
-    chainOnValue(fallA1.curve, upd1);
-    chainOnValue(riseB1.length, upd1);
-    chainOnValue(riseB1.curve, upd1);
-    chainOnValue(fallB1.length, upd1);
-    chainOnValue(fallB1.curve, upd1);
+    chainOnValue(timeA1.length, upd1);
+    chainOnValue(timeA1.curve, upd1);
+    chainOnValue(timeB1.length, upd1);
+    chainOnValue(timeB1.curve, upd1);
+    chainOnValue(intensityA1.length, upd1);
+    chainOnValue(intensityA1.curve, upd1);
+    chainOnValue(intensityB1.length, upd1);
+    chainOnValue(intensityB1.curve, upd1);
     chainOnValue(invertA1.slider, upd1);
     chainOnValue(invertB1.slider, upd1);
     chainOnValue(phaseK1.slider, upd1);
 
     // Lane 2 chain
-    chainOnValue(riseA2.length, upd2);
-    chainOnValue(riseA2.curve, upd2);
-    chainOnValue(fallA2.length, upd2);
-    chainOnValue(fallA2.curve, upd2);
-    chainOnValue(riseB2.length, upd2);
-    chainOnValue(riseB2.curve, upd2);
-    chainOnValue(fallB2.length, upd2);
-    chainOnValue(fallB2.curve, upd2);
+    chainOnValue(timeA2.length, upd2);
+    chainOnValue(timeA2.curve, upd2);
+    chainOnValue(timeB2.length, upd2);
+    chainOnValue(timeB2.curve, upd2);
+    chainOnValue(intensityA2.length, upd2);
+    chainOnValue(intensityA2.curve, upd2);
+    chainOnValue(intensityB2.length, upd2);
+    chainOnValue(intensityB2.curve, upd2);
     chainOnValue(invertA2.slider, upd2);
     chainOnValue(invertB2.slider, upd2);
     chainOnValue(phaseK2.slider, upd2);
 
     // Lane 3 chain
-    chainOnValue(riseA3.length, upd3);
-    chainOnValue(riseA3.curve, upd3);
-    chainOnValue(fallA3.length, upd3);
-    chainOnValue(fallA3.curve, upd3);
-    chainOnValue(riseB3.length, upd3);
-    chainOnValue(riseB3.curve, upd3);
-    chainOnValue(fallB3.length, upd3);
-    chainOnValue(fallB3.curve, upd3);
+    chainOnValue(timeA3.length, upd3);
+    chainOnValue(timeA3.curve, upd3);
+    chainOnValue(timeB3.length, upd3);
+    chainOnValue(timeB3.curve, upd3);
+    chainOnValue(intensityA3.length, upd3);
+    chainOnValue(intensityA3.curve, upd3);
+    chainOnValue(intensityB3.length, upd3);
+    chainOnValue(intensityB3.curve, upd3);
     chainOnValue(invertA3.slider, upd3);
     chainOnValue(invertB3.slider, upd3);
     chainOnValue(phaseK3.slider, upd3);
 
     // Lane 4 chain
-    chainOnValue(riseA4.length, upd4);
-    chainOnValue(riseA4.curve, upd4);
-    chainOnValue(fallA4.length, upd4);
-    chainOnValue(fallA4.curve, upd4);
-    chainOnValue(riseB4.length, upd4);
-    chainOnValue(riseB4.curve, upd4);
-    chainOnValue(fallB4.length, upd4);
-    chainOnValue(fallB4.curve, upd4);
+    chainOnValue(timeA4.length, upd4);
+    chainOnValue(timeA4.curve, upd4);
+    chainOnValue(timeB4.length, upd4);
+    chainOnValue(timeB4.curve, upd4);
+    chainOnValue(intensityA4.length, upd4);
+    chainOnValue(intensityA4.curve, upd4);
+    chainOnValue(intensityB4.length, upd4);
+    chainOnValue(intensityB4.curve, upd4);
     chainOnValue(invertA4.slider, upd4);
     chainOnValue(invertB4.slider, upd4);
     chainOnValue(phaseK4.slider, upd4);
 
     // Lane 5 chain
-    chainOnValue(riseA5.length, upd5);
-    chainOnValue(riseA5.curve, upd5);
-    chainOnValue(fallA5.length, upd5);
-    chainOnValue(fallA5.curve, upd5);
-    chainOnValue(riseB5.length, upd5);
-    chainOnValue(riseB5.curve, upd5);
-    chainOnValue(fallB5.length, upd5);
-    chainOnValue(fallB5.curve, upd5);
+    chainOnValue(timeA5.length, upd5);
+    chainOnValue(timeA5.curve, upd5);
+    chainOnValue(timeB5.length, upd5);
+    chainOnValue(timeB5.curve, upd5);
+    chainOnValue(intensityA5.length, upd5);
+    chainOnValue(intensityA5.curve, upd5);
+    chainOnValue(intensityB5.length, upd5);
+    chainOnValue(intensityB5.curve, upd5);
     chainOnValue(invertA5.slider, upd5);
     chainOnValue(invertB5.slider, upd5);
     chainOnValue(phaseK5.slider, upd5);
 
     // Lane 6 chain
-    chainOnValue(riseA6.length, upd6);
-    chainOnValue(riseA6.curve, upd6);
-    chainOnValue(fallA6.length, upd6);
-    chainOnValue(fallA6.curve, upd6);
-    chainOnValue(riseB6.length, upd6);
-    chainOnValue(riseB6.curve, upd6);
-    chainOnValue(fallB6.length, upd6);
-    chainOnValue(fallB6.curve, upd6);
+    chainOnValue(timeA6.length, upd6);
+    chainOnValue(timeA6.curve, upd6);
+    chainOnValue(timeB6.length, upd6);
+    chainOnValue(timeB6.curve, upd6);
+    chainOnValue(intensityA6.length, upd6);
+    chainOnValue(intensityA6.curve, upd6);
+    chainOnValue(intensityB6.length, upd6);
+    chainOnValue(intensityB6.curve, upd6);
     chainOnValue(invertA6.slider, upd6);
     chainOnValue(invertB6.slider, upd6);
     chainOnValue(phaseK6.slider, upd6);
@@ -687,69 +677,63 @@ void PinkELFOntsAudioProcessorEditor::resized()
     const bool randomVisible = (tab == 6);
 
     // LANE 1 controls visibility
-    mixK1.setVisible(lane1Visible);
     phaseK1.setVisible(lane1Visible);
     invertA1.setVisible(lane1Visible);
     invertB1.setVisible(lane1Visible);
-    riseA1.setVisible(lane1Visible);
-    fallA1.setVisible(lane1Visible);
-    riseB1.setVisible(lane1Visible);
-    fallB1.setVisible(lane1Visible);
+    timeA1.setVisible(lane1Visible);
+    timeB1.setVisible(lane1Visible);
+    intensityA1.setVisible(lane1Visible);
+    intensityB1.setVisible(lane1Visible);
     lane1Scope2.setVisible(lane1Visible);
 
     // LANE 2 controls visibility
-    mixK2.setVisible(lane2Visible);
     phaseK2.setVisible(lane2Visible);
     invertA2.setVisible(lane2Visible);
     invertB2.setVisible(lane2Visible);
-    riseA2.setVisible(lane2Visible);
-    fallA2.setVisible(lane2Visible);
-    riseB2.setVisible(lane2Visible);
-    fallB2.setVisible(lane2Visible);
+    timeA2.setVisible(lane2Visible);
+    timeB2.setVisible(lane2Visible);
+    intensityA2.setVisible(lane2Visible);
+    intensityB2.setVisible(lane2Visible);
     lane2Scope3.setVisible(lane2Visible);
 
     // LANE 3 controls visibility
-    mixK3.setVisible(lane3Visible);
     phaseK3.setVisible(lane3Visible);
     invertA3.setVisible(lane3Visible);
     invertB3.setVisible(lane3Visible);
-    riseA3.setVisible(lane3Visible);
-    fallA3.setVisible(lane3Visible);
-    riseB3.setVisible(lane3Visible);
-    fallB3.setVisible(lane3Visible);
+    timeA3.setVisible(lane3Visible);
+    timeB3.setVisible(lane3Visible);
+    intensityA3.setVisible(lane3Visible);
+    intensityB3.setVisible(lane3Visible);
     lane3Scope2.setVisible(lane3Visible);
 
     // LANE 4 controls visibility
-    mixK4.setVisible(lane4Visible);
     phaseK4.setVisible(lane4Visible);
     invertA4.setVisible(lane4Visible);
     invertB4.setVisible(lane4Visible);
-    riseA4.setVisible(lane4Visible);
-    fallA4.setVisible(lane4Visible);
-    riseB4.setVisible(lane4Visible);
-    fallB4.setVisible(lane4Visible);
+    timeA4.setVisible(lane4Visible);
+    timeB4.setVisible(lane4Visible);
+    intensityA4.setVisible(lane4Visible);
+    intensityB4.setVisible(lane4Visible);
     lane4Scope3.setVisible(lane4Visible);
 
     // LANE 5 controls visibility
-    mixK5.setVisible(lane5Visible);
     phaseK5.setVisible(lane5Visible);
     invertA5.setVisible(lane5Visible);
     invertB5.setVisible(lane5Visible);
-    riseA5.setVisible(lane5Visible);
-    fallA5.setVisible(lane5Visible);
-    riseB5.setVisible(lane5Visible);
-    fallB5.setVisible(lane5Visible);
+    timeA5.setVisible(lane5Visible);
+    timeB5.setVisible(lane5Visible);
+    intensityA5.setVisible(lane5Visible);
+    intensityB5.setVisible(lane5Visible);
     lane5Scope2.setVisible(lane5Visible);
 
     // LANE 6 controls visibility
-    mixK6.setVisible(lane6Visible);
     phaseK6.setVisible(lane6Visible);
     invertA6.setVisible(lane6Visible);
     invertB6.setVisible(lane6Visible);
-    riseA6.setVisible(lane6Visible);
-    fallA6.setVisible(lane6Visible);
-    riseB6.setVisible(lane6Visible);
-    fallB6.setVisible(lane6Visible);
+    timeA6.setVisible(lane6Visible);
+    timeB6.setVisible(lane6Visible);
+    intensityA6.setVisible(lane6Visible);
+    intensityB6.setVisible(lane6Visible);
     lane6Scope3.setVisible(lane6Visible);
 
     // Random (placeholders)
@@ -762,7 +746,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
     {
         auto r = content;
 
-        // Left controls / Right scope (identical layout on both tabs)
+        // Left controls / Right scope
         const int cols = 4;
         const int colW = kDual;
         const int colGap = kGap;
@@ -772,8 +756,8 @@ void PinkELFOntsAudioProcessorEditor::resized()
         auto controls = r.removeFromLeft(controlsW);
         auto scope = r.reduced(8, 6);
 
+        // Pick the scope for the visible lane
         juce::Component *scopeView = nullptr;
-
         if (lane1Visible)
             scopeView = &lane1Scope2;
         else if (lane2Visible)
@@ -792,13 +776,12 @@ void PinkELFOntsAudioProcessorEditor::resized()
         if (scopeView != nullptr)
             scopeView->setBounds(scope);
 
+        // (If you show the global/output scope here, keep this; otherwise remove)
         addAndMakeVisible(outputMixScope);
         outputMixScope.setEvaluator([this](float ph01)
-                                    {
-                                        return processor.evalMixed(ph01); // coming in step C
-                                    });
+                                    { return processor.evalMixed(ph01); });
 
-        // Row 0: Mix | Phase | Invert A | Invert B
+        // ---------------- Row 0: Phase | Invert A | Invert B (centered) ----------
         auto row0 = controls.removeFromTop(kKnob);
         auto placeTop = [&](Knob &k)
         {
@@ -806,44 +789,41 @@ void PinkELFOntsAudioProcessorEditor::resized()
             row0.removeFromLeft(colGap);
         };
 
+        // Leave one slot empty to center 3 knobs in a 4-slot row
+        row0.removeFromLeft(colW + colGap);
+
         if (lane1Visible)
         {
-            placeTop(mixK1);
             placeTop(phaseK1);
             placeTop(invertA1);
             placeTop(invertB1);
         }
         else if (lane2Visible)
         {
-            placeTop(mixK2);
             placeTop(phaseK2);
             placeTop(invertA2);
             placeTop(invertB2);
         }
         else if (lane3Visible)
         {
-            placeTop(mixK3);
             placeTop(phaseK3);
             placeTop(invertA3);
             placeTop(invertB3);
         }
         else if (lane4Visible)
         {
-            placeTop(mixK4);
             placeTop(phaseK4);
             placeTop(invertA4);
             placeTop(invertB4);
         }
         else if (lane5Visible)
         {
-            placeTop(mixK5);
             placeTop(phaseK5);
             placeTop(invertA5);
             placeTop(invertB5);
         }
         else if (lane6Visible)
         {
-            placeTop(mixK6);
             placeTop(phaseK6);
             placeTop(invertA6);
             placeTop(invertB6);
@@ -851,7 +831,7 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
         controls.removeFromTop(kGap);
 
-        // Row 1: Rise A | Fall A | Rise B | Fall B
+        // ------ Row 1: Time A | Time B | Intensity A | Intensity B ----------
         auto rowDual = controls.removeFromTop(kDual);
         auto placeDual = [&](DualKnob &dk)
         {
@@ -861,45 +841,45 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
         if (lane1Visible)
         {
-            placeDual(riseA1);
-            placeDual(fallA1);
-            placeDual(riseB1);
-            placeDual(fallB1);
+            placeDual(timeA1);
+            placeDual(timeB1);
+            placeDual(intensityA1);
+            placeDual(intensityB1);
         }
         else if (lane2Visible)
         {
-            placeDual(riseA2);
-            placeDual(fallA2);
-            placeDual(riseB2);
-            placeDual(fallB2);
+            placeDual(timeA2);
+            placeDual(timeB2);
+            placeDual(intensityA2);
+            placeDual(intensityB2);
         }
         else if (lane3Visible)
         {
-            placeDual(riseA3);
-            placeDual(fallA3);
-            placeDual(riseB3);
-            placeDual(fallB3);
+            placeDual(timeA3);
+            placeDual(timeB3);
+            placeDual(intensityA3);
+            placeDual(intensityB3);
         }
         else if (lane4Visible)
         {
-            placeDual(riseA4);
-            placeDual(fallA4);
-            placeDual(riseB4);
-            placeDual(fallB4);
+            placeDual(timeA4);
+            placeDual(timeB4);
+            placeDual(intensityA4);
+            placeDual(intensityB4);
         }
         else if (lane5Visible)
         {
-            placeDual(riseA5);
-            placeDual(fallA5);
-            placeDual(riseB5);
-            placeDual(fallB5);
+            placeDual(timeA5);
+            placeDual(timeB5);
+            placeDual(intensityA5);
+            placeDual(intensityB5);
         }
         else if (lane6Visible)
         {
-            placeDual(riseA6);
-            placeDual(fallA6);
-            placeDual(riseB6);
-            placeDual(fallB6);
+            placeDual(timeA6);
+            placeDual(timeB6);
+            placeDual(intensityA6);
+            placeDual(intensityB6);
         }
     };
 

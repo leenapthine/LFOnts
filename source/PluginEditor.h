@@ -372,64 +372,58 @@ private:
     Knob phaseNudgeK{"Phase Nudge"};
 
     // Lane 1 controls
-    Knob mixK1{"Mix"};
     Knob phaseK1{"Phase"};
     Knob invertA1{"Invert A"};
     Knob invertB1{"Invert B"};
-    DualKnob riseA1{"Rise A"};
-    DualKnob fallA1{"Fall A"};
-    DualKnob riseB1{"Rise B"};
-    DualKnob fallB1{"Fall B"};
+    DualKnob timeA1{"Time A / Curve 1"};
+    DualKnob timeB1{"Time B / Curve 2"};
+    DualKnob intensityA1{"Intensity A / Curve 3"};
+    DualKnob intensityB1{"Intensity B / Curve 4"};
 
     // Lane 2 controls (its own knobs)
-    Knob mixK2{"Mix"};
     Knob phaseK2{"Phase"};
     Knob invertA2{"Invert A"};
     Knob invertB2{"Invert B"};
-    DualKnob riseA2{"Rise A"};
-    DualKnob fallA2{"Fall A"};
-    DualKnob riseB2{"Rise B"};
-    DualKnob fallB2{"Fall B"};
+    DualKnob timeA2{"Time A / Curve 1"};
+    DualKnob timeB2{"Time B / Curve 2"};
+    DualKnob intensityA2{"Intensity A / Curve 3"};
+    DualKnob intensityB2{"Intensity B / Curve 4"};
 
     // Lane 3 controls
-    Knob mixK3{"Mix"};
     Knob phaseK3{"Phase"};
     Knob invertA3{"Invert A"};
     Knob invertB3{"Invert B"};
-    DualKnob riseA3{"Rise A"};
-    DualKnob fallA3{"Fall A"};
-    DualKnob riseB3{"Rise B"};
-    DualKnob fallB3{"Fall B"};
+    DualKnob timeA3{"Time A / Curve 1"};
+    DualKnob timeB3{"Time B / Curve 2"};
+    DualKnob intensityA3{"Intensity A / Curve 3"};
+    DualKnob intensityB3{"Intensity B / Curve 4"};
 
     // Lane 4 controls (its own knobs)
-    Knob mixK4{"Mix"};
     Knob phaseK4{"Phase"};
     Knob invertA4{"Invert A"};
     Knob invertB4{"Invert B"};
-    DualKnob riseA4{"Rise A"};
-    DualKnob fallA4{"Fall A"};
-    DualKnob riseB4{"Rise B"};
-    DualKnob fallB4{"Fall B"};
+    DualKnob timeA4{"Time A / Curve 1"};
+    DualKnob timeB4{"Time B / Curve 2"};
+    DualKnob intensityA4{"Intensity A / Curve 3"};
+    DualKnob intensityB4{"Intensity B / Curve 4"};
 
     // Lane 5 controls
-    Knob mixK5{"Mix"};
     Knob phaseK5{"Phase"};
     Knob invertA5{"Invert A"};
     Knob invertB5{"Invert B"};
-    DualKnob riseA5{"Rise A"};
-    DualKnob fallA5{"Fall A"};
-    DualKnob riseB5{"Rise B"};
-    DualKnob fallB5{"Fall B"};
+    DualKnob timeA5{"Time A / Curve 1"};
+    DualKnob timeB5{"Time B / Curve 2"};
+    DualKnob intensityA5{"Intensity A / Curve 3"};
+    DualKnob intensityB5{"Intensity B / Curve 4"};
 
     // Lane 6 controls (its own knobs)
-    Knob mixK6{"Mix"};
     Knob phaseK6{"Phase"};
     Knob invertA6{"Invert A"};
     Knob invertB6{"Invert B"};
-    DualKnob riseA6{"Rise A"};
-    DualKnob fallA6{"Fall A"};
-    DualKnob riseB6{"Rise B"};
-    DualKnob fallB6{"Fall B"};
+    DualKnob timeA6{"Time A / Curve 1"};
+    DualKnob timeB6{"Time B / Curve 2"};
+    DualKnob intensityA6{"Intensity A / Curve 3"};
+    DualKnob intensityB6{"Intensity B / Curve 4"};
 
     // Scopes
     ScopeTriangles lane1Scope2{2};
@@ -453,40 +447,94 @@ private:
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
 
     // Lane 1 attaches
-    std::unique_ptr<SliderAtt> mix1Att, phase1Att;
-    std::unique_ptr<SliderAtt> riseA1Att, fallA1Att, riseB1Att, fallB1Att;                     // lengths
-    std::unique_ptr<SliderAtt> riseA1CurveAtt, fallA1CurveAtt, riseB1CurveAtt, fallB1CurveAtt; // curvature
-    std::unique_ptr<SliderAtt> invertA1Att, invertB1Att;
+    std::unique_ptr<SliderAtt> phase1Att, invertA1Att, invertB1Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA1LenAtt, timeA1LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA1CurveRiseAtt, timeA1CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB1LenAtt, timeB1LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB1CurveRiseAtt, timeB1CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA1LenAtt, intensityA1CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB1LenAtt, intensityB1CurveAtt;
 
     // Lane 2 attaches (created only if params exist)
-    std::unique_ptr<SliderAtt> mix2Att, phase2Att;
-    std::unique_ptr<SliderAtt> riseA2Att, fallA2Att, riseB2Att, fallB2Att;
-    std::unique_ptr<SliderAtt> riseA2CurveAtt, fallA2CurveAtt, riseB2CurveAtt, fallB2CurveAtt;
-    std::unique_ptr<SliderAtt> invertA2Att, invertB2Att;
+    std::unique_ptr<SliderAtt> phase2Att, invertA2Att, invertB2Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA2LenAtt, timeA2LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA2CurveRiseAtt, timeA2CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB2LenAtt, timeB2LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB2CurveRiseAtt, timeB2CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA2LenAtt, intensityA2CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB2LenAtt, intensityB2CurveAtt;
 
     // Lane 3 attaches
-    std::unique_ptr<SliderAtt> mix3Att, phase3Att;
-    std::unique_ptr<SliderAtt> riseA3Att, fallA3Att, riseB3Att, fallB3Att;                     // lengths
-    std::unique_ptr<SliderAtt> riseA3CurveAtt, fallA3CurveAtt, riseB3CurveAtt, fallB3CurveAtt; // curvature
-    std::unique_ptr<SliderAtt> invertA3Att, invertB3Att;
+    std::unique_ptr<SliderAtt> phase3Att, invertA3Att, invertB3Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA3LenAtt, timeA3LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA3CurveRiseAtt, timeA3CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB3LenAtt, timeB3LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB3CurveRiseAtt, timeB3CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA3LenAtt, intensityA3CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB3LenAtt, intensityB3CurveAtt;
 
     // Lane 4 attaches (created only if params exist)
-    std::unique_ptr<SliderAtt> mix4Att, phase4Att;
-    std::unique_ptr<SliderAtt> riseA4Att, fallA4Att, riseB4Att, fallB4Att;
-    std::unique_ptr<SliderAtt> riseA4CurveAtt, fallA4CurveAtt, riseB4CurveAtt, fallB4CurveAtt;
-    std::unique_ptr<SliderAtt> invertA4Att, invertB4Att;
+    std::unique_ptr<SliderAtt> phase4Att, invertA4Att, invertB4Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA4LenAtt, timeA4LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA4CurveRiseAtt, timeA4CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB4LenAtt, timeB4LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB4CurveRiseAtt, timeB4CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA4LenAtt, intensityA4CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB4LenAtt, intensityB4CurveAtt;
 
     // Lane 5 attaches
-    std::unique_ptr<SliderAtt> mix5Att, phase5Att;
-    std::unique_ptr<SliderAtt> riseA5Att, fallA5Att, riseB5Att, fallB5Att;                     // lengths
-    std::unique_ptr<SliderAtt> riseA5CurveAtt, fallA5CurveAtt, riseB5CurveAtt, fallB5CurveAtt; // curvature
-    std::unique_ptr<SliderAtt> invertA5Att, invertB5Att;
+    std::unique_ptr<SliderAtt> phase5Att, invertA5Att, invertB5Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA5LenAtt, timeA5LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA5CurveRiseAtt, timeA5CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB5LenAtt, timeB5LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB5CurveRiseAtt, timeB5CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA5LenAtt, intensityA5CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB5LenAtt, intensityB5CurveAtt;
 
     // Lane 6 attaches (created only if params exist)
-    std::unique_ptr<SliderAtt> mix6Att, phase6Att;
-    std::unique_ptr<SliderAtt> riseA6Att, fallA6Att, riseB6Att, fallB6Att;
-    std::unique_ptr<SliderAtt> riseA6CurveAtt, fallA6CurveAtt, riseB6CurveAtt, fallB6CurveAtt;
-    std::unique_ptr<SliderAtt> invertA6Att, invertB6Att;
+    std::unique_ptr<SliderAtt> phase6Att, invertA6Att, invertB6Att;
+
+    // Time A drives riseA/fallA length + both curves
+    std::unique_ptr<SliderAtt> timeA6LenAtt, timeA6LenFallAtt;
+    std::unique_ptr<SliderAtt> timeA6CurveRiseAtt, timeA6CurveFallAtt;
+
+    // Time B drives riseB/fallB length + both curves
+    std::unique_ptr<SliderAtt> timeB6LenAtt, timeB6LenFallAtt;
+    std::unique_ptr<SliderAtt> timeB6CurveRiseAtt, timeB6CurveFallAtt;
+
+    // Intensities + their inner curve rings
+    std::unique_ptr<SliderAtt> intensityA6LenAtt, intensityA6CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB6LenAtt, intensityB6CurveAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessorEditor)
 };

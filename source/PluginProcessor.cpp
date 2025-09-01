@@ -2,6 +2,24 @@
 #include "PluginEditor.h"
 #include <cmath>
 
+// ===== Helpers for squaring by intensity ===================================
+static inline float squareByIntensity(float x /*0..1*/, float amp /*0..1*/)
+{
+    // Piecewise: below 0.5 = linear gain up to 1.0; above 0.5 = pre-gain → soft clip
+    if (amp <= 0.5f)
+    {
+        const float g = juce::jmap(amp, 0.0f, 0.5f, 0.0f, 1.0f); // 0..1
+        return juce::jlimit(0.0f, 1.0f, x * g);
+    }
+
+    // 0.5..1.0 -> 1..maxPreGain
+    const float maxPreGain = 8.0f;                   // tweak hardness of “square”
+    const float t = (amp - 0.5f) * 2.0f;             // 0..1
+    const float g = juce::jmap(t, 1.0f, maxPreGain); // 1..8
+    const float pre = x * g;
+    return juce::jlimit(0.0f, 1.0f, pre);
+}
+
 // ===== Parameter layout =====
 PinkELFOntsAudioProcessor::APVTS::ParameterLayout
 PinkELFOntsAudioProcessor::createParameterLayout()
@@ -24,7 +42,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
 
     // ---- Lane 1 (¼ note) ----
     params.push_back(std::make_unique<AudioParameterBool>(
-        "lane1.enabled", "Lane 1 Enabled", true)); // default ON
+        "lane1.enabled", "Lane 1 Enabled", true));
 
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane1.mix", "Lane 1 Mix",
@@ -34,7 +52,23 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane1.phaseDeg", "Lane 1 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
 
-    // Length (A/B rise/fall)
+    // NEW: intensity A/B (amplitude per half), default 0.5
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane1.intensityA", "Lane 1 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane1.intensityB", "Lane 1 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+
+    // NEW: inner curvature for intensity A/B
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane1.curv.intensityA", "Lane 1 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane1.curv.intensityB", "Lane 1 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // Existing time (rise/fall) and their curves — keep
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane1.curve.riseA", "Lane 1 Rise A",
         NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
@@ -48,7 +82,6 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane1.curve.fallB", "Lane 1 Fall B",
         NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
 
-    // Curvature (inner rings)  [-1..1]
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane1.curv.riseA", "Lane 1 Curv Rise A",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
@@ -62,7 +95,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane1.curv.fallB", "Lane 1 Curv Fall B",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
-    // Invert knobs [-1..1], we’ll use |value| in DSP
+    // Invert — keep
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane1.invertA", "Lane 1 Invert A",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
@@ -81,6 +114,20 @@ PinkELFOntsAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane2.phaseDeg", "Lane 2 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
+
+    // NEW: intensity A/B + their inner curvature
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane2.intensityA", "Lane 2 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane2.intensityB", "Lane 2 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane2.curv.intensityA", "Lane 2 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane2.curv.intensityB", "Lane 2 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
     // Length (A/B) + Curvature + Invert (mirrors lane 1)
     for (auto id : {std::pair{"riseA", "Rise A"}, std::pair{"fallA", "Fall A"},
@@ -106,7 +153,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
 
     // ---- Lane 3 (1/8 note) ----
     params.push_back(std::make_unique<AudioParameterBool>(
-        "lane3.enabled", "Lane 3 Enabled", false)); // default Off
+        "lane3.enabled", "Lane 3 Enabled", false));
 
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane3.mix", "Lane 3 Mix",
@@ -115,6 +162,20 @@ PinkELFOntsAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane3.phaseDeg", "Lane 3 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
+
+    // NEW: intensity A/B + their inner curvature
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane3.intensityA", "Lane 3 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane3.intensityB", "Lane 3 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane3.curv.intensityA", "Lane 3 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane3.curv.intensityB", "Lane 3 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
     // Length (A/B rise/fall)
     params.push_back(std::make_unique<AudioParameterFloat>(
@@ -144,7 +205,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane3.curv.fallB", "Lane 3 Curv Fall B",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
-    // Invert knobs [-1..1], we’ll use |value| in DSP
+    // Invert
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane3.invertA", "Lane 3 Invert A",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
@@ -164,7 +225,21 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane4.phaseDeg", "Lane 4 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
 
-    // Length (A/B) + Curvature + Invert (mirrors lane 1)
+    // NEW: intensity A/B + their inner curvature
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane4.intensityA", "Lane 4 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane4.intensityB", "Lane 4 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane4.curv.intensityA", "Lane 4 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane4.curv.intensityB", "Lane 4 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // Length (A/B) + Curvature + Invert (loop style)
     for (auto id : {std::pair{"riseA", "Rise A"}, std::pair{"fallA", "Fall A"},
                     std::pair{"riseB", "Rise B"}, std::pair{"fallB", "Fall B"}})
     {
@@ -188,7 +263,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
 
     // ---- Lane 5 (1/16 note) ----
     params.push_back(std::make_unique<AudioParameterBool>(
-        "lane5.enabled", "Lane 5 Enabled", false)); // default Off
+        "lane5.enabled", "Lane 5 Enabled", false));
 
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane5.mix", "Lane 5 Mix",
@@ -197,6 +272,20 @@ PinkELFOntsAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane5.phaseDeg", "Lane 5 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
+
+    // NEW: intensity A/B + their inner curvature
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane5.intensityA", "Lane 5 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane5.intensityB", "Lane 5 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane5.curv.intensityA", "Lane 5 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane5.curv.intensityB", "Lane 5 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
     // Length (A/B rise/fall)
     params.push_back(std::make_unique<AudioParameterFloat>(
@@ -212,7 +301,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane5.curve.fallB", "Lane 5 Fall B",
         NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
 
-    // Curvature (inner rings)  [-1..1]
+    // Curvature (inner rings)
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane5.curv.riseA", "Lane 5 Curv Rise A",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
@@ -226,7 +315,7 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane5.curv.fallB", "Lane 5 Curv Fall B",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
-    // Invert knobs [-1..1], we’ll use |value| in DSP
+    // Invert
     params.push_back(std::make_unique<AudioParameterFloat>(
         "lane5.invertA", "Lane 5 Invert A",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
@@ -246,7 +335,21 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane6.phaseDeg", "Lane 6 Phase (deg)",
         NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
 
-    // Length (A/B) + Curvature + Invert (mirrors lane 1)
+    // NEW: intensity A/B + their inner curvature
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane6.intensityA", "Lane 6 Intensity A",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane6.intensityB", "Lane 6 Intensity B",
+        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane6.curv.intensityA", "Lane 6 Curv Intensity A",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        "lane6.curv.intensityB", "Lane 6 Curv Intensity B",
+        NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // Length (A/B) + Curvature + Invert (loop style)
     for (auto id : {std::pair{"riseA", "Rise A"}, std::pair{"fallA", "Fall A"},
                     std::pair{"riseB", "Rise B"}, std::pair{"fallB", "Fall B"}})
     {
@@ -317,21 +420,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane1Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane1.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane1.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane1.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane1.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane1.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane1.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane1.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane1.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane1.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane1.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane1.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane1.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane1.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane1.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane1.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane1.curv.fallB")->load();
 
-    // Invert: take absolute value — center (0) = no inversion; ends = full inversion
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane1.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane1.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane1.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane1.invertB")->load()));
 
     return s;
 }
@@ -341,21 +444,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane2Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane2.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane2.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane2.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane2.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane2.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane2.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane2.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane2.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane2.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane2.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane2.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane2.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane2.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane2.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane2.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane2.curv.fallB")->load();
 
-    // Invert is processed as |value|
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane2.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane2.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane2.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane2.invertB")->load()));
 
     return s;
 }
@@ -365,21 +468,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane3Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane3.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane3.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane3.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane3.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane3.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane3.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane3.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane3.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane3.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane3.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane3.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane3.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane3.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane3.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane3.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane3.curv.fallB")->load();
 
-    // Invert: take absolute value — center (0) = no inversion; ends = full inversion
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane3.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane3.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane3.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane3.invertB")->load()));
 
     return s;
 }
@@ -389,21 +492,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane4Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane4.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane4.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane4.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane4.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane4.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane4.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane4.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane4.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane4.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane4.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane4.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane4.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane4.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane4.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane4.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane4.curv.fallB")->load();
 
-    // Invert is processed as |value|
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane4.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane4.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane4.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane4.invertB")->load()));
 
     return s;
 }
@@ -413,21 +516,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane5Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane5.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane5.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane5.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane5.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane5.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane5.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane5.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane5.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane5.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane5.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane5.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane5.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane5.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane5.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane5.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane5.curv.fallB")->load();
 
-    // Invert: take absolute value — center (0) = no inversion; ends = full inversion
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane5.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane5.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane5.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane5.invertB")->load()));
 
     return s;
 }
@@ -437,21 +540,21 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane6Shape() const
     LFO::Shape s;
     auto &p = apvts;
 
-    // Lengths
-    s.riseA = (float)*p.getRawParameterValue("lane6.curve.riseA");
-    s.fallA = (float)*p.getRawParameterValue("lane6.curve.fallA");
-    s.riseB = (float)*p.getRawParameterValue("lane6.curve.riseB");
-    s.fallB = (float)*p.getRawParameterValue("lane6.curve.fallB");
+    // Lengths (driven by Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane6.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane6.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane6.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane6.curve.fallB")->load();
 
-    // Curvatures [-1..1]
-    s.curvRiseA = (float)*p.getRawParameterValue("lane6.curv.riseA");
-    s.curvFallA = (float)*p.getRawParameterValue("lane6.curv.fallA");
-    s.curvRiseB = (float)*p.getRawParameterValue("lane6.curv.riseB");
-    s.curvFallB = (float)*p.getRawParameterValue("lane6.curv.fallB");
+    // Curvatures [-1..1]  (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane6.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane6.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane6.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane6.curv.fallB")->load();
 
-    // Invert is processed as |value|
-    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane6.invertA")));
-    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs((float)*p.getRawParameterValue("lane6.invertB")));
+    // Invert (keep your existing behavior)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane6.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane6.invertB")->load()));
 
     return s;
 }
@@ -471,50 +574,63 @@ float PinkELFOntsAudioProcessor::evalLane1(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane1Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane1.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane1.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
-    return LFO::evalCycle(ph01, s); // unipolar 0..1
+
+    const float v = LFO::evalCycle(ph01, s);      // 0..1 base
+    const int half = halfIndexFromPhase(ph01);    // 0=A, 1=B
+    const float amp = laneHalfIntensity(1, half); // lane1.intensityA/B 0..1
+    return squareByIntensity(v, amp);
 }
 
-// A, B, B across the unit phase (third triangle mirrors B)
 float PinkELFOntsAudioProcessor::evalLane2Triplet(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane2Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane2.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane2.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
 
+    // Piecewise map 0..1 into three triangles: A (0..1), B (0..1), B (0..1)
+    float v = 0.0f;
+    int half = 0; // 0=A, 1=B
     if (ph01 < 2.0f / 3.0f)
     {
-        // Map 0..2/3 -> 0..1 and let evalCycle do A then B
-        float u = ph01 * 1.5f; // 0..1
-        return LFO::evalCycle(u, s);
+        const float u = ph01 * 1.5f; // 0..1 over first 2/3
+        v = LFO::evalCycle(u, s);    // does A then B across 0..1
+        half = (u < 0.5f ? 0 : 1);   // A in first half, B in second
     }
     else
     {
-        // Third triangle: replicate B over full [0..1) by sampling second half of evalCycle
-        float u = (ph01 - 2.0f / 3.0f) * 3.0f; // 0..1
-        float v = 0.5f + 0.5f * u;             // second half (B)
-        return LFO::evalCycle(v, s);
+        const float u = (ph01 - 2.0f / 3.0f) * 3.0f; // 0..1 over last 1/3
+        const float b = 0.5f + 0.5f * u;             // force eval of B half
+        v = LFO::evalCycle(b, s);
+        half = 1; // third triangle is B
     }
+
+    const float amp = laneHalfIntensity(2, half);
+    return squareByIntensity(v, amp);
 }
 
 float PinkELFOntsAudioProcessor::evalLane3(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane3Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane3.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane3.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
-    return LFO::evalCycle(ph01, s); // unipolar 0..1
+
+    const float v = LFO::evalCycle(ph01, s);
+    const int half = halfIndexFromPhase(ph01);
+    const float amp = laneHalfIntensity(3, half);
+    return squareByIntensity(v, amp);
 }
 
 // A, B, B across the unit phase (third triangle mirrors B)
@@ -522,37 +638,46 @@ float PinkELFOntsAudioProcessor::evalLane4Triplet(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane4Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane4.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane4.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
 
+    float v = 0.0f;
+    int half = 0;
     if (ph01 < 2.0f / 3.0f)
     {
-        // Map 0..2/3 -> 0..1 and let evalCycle do A then B
-        float u = ph01 * 1.5f; // 0..1
-        return LFO::evalCycle(u, s);
+        const float u = ph01 * 1.5f;
+        v = LFO::evalCycle(u, s);
+        half = (u < 0.5f ? 0 : 1);
     }
     else
     {
-        // Third triangle: replicate B over full [0..1) by sampling second half of evalCycle
-        float u = (ph01 - 2.0f / 3.0f) * 3.0f; // 0..1
-        float v = 0.5f + 0.5f * u;             // second half (B)
-        return LFO::evalCycle(v, s);
+        const float u = (ph01 - 2.0f / 3.0f) * 3.0f;
+        const float b = 0.5f + 0.5f * u;
+        v = LFO::evalCycle(b, s);
+        half = 1;
     }
+
+    const float amp = laneHalfIntensity(4, half);
+    return squareByIntensity(v, amp);
 }
 
 float PinkELFOntsAudioProcessor::evalLane5(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane5Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane5.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane5.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
-    return LFO::evalCycle(ph01, s); // unipolar 0..1
+
+    const float v = LFO::evalCycle(ph01, s);
+    const int half = halfIndexFromPhase(ph01);
+    const float amp = laneHalfIntensity(5, half);
+    return squareByIntensity(v, amp);
 }
 
 // A, B, B across the unit phase (third triangle mirrors B)
@@ -560,25 +685,30 @@ float PinkELFOntsAudioProcessor::evalLane6Triplet(float ph01) const
 {
     LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane6Shape();
 
-    const float lanePhaseDeg = (float)*apvts.getRawParameterValue("lane6.phaseDeg");
-    const float globalNudge = (float)*apvts.getRawParameterValue("global.phaseNudgeDeg");
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane6.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
     const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
 
     ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
 
+    float v = 0.0f;
+    int half = 0;
     if (ph01 < 2.0f / 3.0f)
     {
-        // Map 0..2/3 -> 0..1 and let evalCycle do A then B
-        float u = ph01 * 1.5f; // 0..1
-        return LFO::evalCycle(u, s);
+        const float u = ph01 * 1.5f;
+        v = LFO::evalCycle(u, s);
+        half = (u < 0.5f ? 0 : 1);
     }
     else
     {
-        // Third triangle: replicate B over full [0..1) by sampling second half of evalCycle
-        float u = (ph01 - 2.0f / 3.0f) * 3.0f; // 0..1
-        float v = 0.5f + 0.5f * u;             // second half (B)
-        return LFO::evalCycle(v, s);
+        const float u = (ph01 - 2.0f / 3.0f) * 3.0f;
+        const float b = 0.5f + 0.5f * u;
+        v = LFO::evalCycle(b, s);
+        half = 1;
     }
+
+    const float amp = laneHalfIntensity(6, half);
+    return squareByIntensity(v, amp);
 }
 
 float PinkELFOntsAudioProcessor::evalMixed(float ph01) const

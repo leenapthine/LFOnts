@@ -76,6 +76,22 @@ private:
     double lane6Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
     double carrierPhase = 0.0; // 0..1 phase for the audio carrier (for EF)
 
+    // Returns 0 for A half, 1 for B half based on phase 0..1 of a 2-triangle cycle
+    inline int halfIndexFromPhase(float ph01) const
+    {
+        // 0..0.5 => A, 0.5..1 => B
+        return (ph01 < 0.5f) ? 0 : 1;
+    }
+
+    // Read per-lane half intensities (A=0, B=1). Defaults to 0.5 if missing.
+    inline float laneHalfIntensity(int lane, int halfAB /*0=A,1=B*/) const
+    {
+        const juce::String id = "lane" + juce::String(lane) + (halfAB == 0 ? ".intensityA" : ".intensityB");
+        if (auto *p = apvts.getParameter(id))
+            return p->getValue(); // 0..1
+        return 0.5f;
+    }
+
     // Carrier for EF visualization
     float carrierHz = 1000.0f;
 
