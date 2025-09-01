@@ -116,6 +116,24 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(phaseNudgeK.slider, -30.0, 30.0, "°");
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
+    // --- Output Rate switch ---------------------------------------------------
+    addAndMakeVisible(rateBox);
+
+    // Make it idempotent so we never stack duplicates
+    rateBox.clear(juce::dontSendNotification);
+
+    rateBox.addItem("1/4", 1);
+    rateBox.addItem("1/2", 2);
+    rateBox.addItem("1 bar", 3);
+    rateBox.addItem("2 bars", 4);
+    rateBox.addItem("4 bars", 5);
+
+    rateBox.setJustificationType(juce::Justification::centred);
+
+    // Create the attachment once
+    if (!rateAtt)
+        rateAtt = std::make_unique<ComboAtt>(processor.apvts, "output.rate", rateBox);
+
     // Slope / Curve
     addAndMakeVisible(slopeK);
 
@@ -601,13 +619,16 @@ void PinkELFOntsAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(kPad);
 
-    // --- Top bar ------------------------------------------------------------
+    // Top bar
     auto top = bounds.removeFromTop(kRowH);
     title.setBounds(top.removeFromLeft(280));
     top.removeFromRight(kGap);
-    retrigBox.setBounds(top.removeFromRight(220));
 
-    bounds.removeFromTop(kGap);
+    // Right side of top bar: rateBox then retrigBox
+    const int comboW = 240, comboH = 34, gapX = 16;
+    rateBox.setBounds(top.removeFromRight(comboW).reduced(0, (top.getHeight() - comboH) / 2));
+    top.removeFromRight(gapX);
+    retrigBox.setBounds(top.removeFromRight(comboW).reduced(0, (top.getHeight() - comboH) / 2));
 
     // --- Cards --------------------------------------------------------------
     // Right: Mixer card (remainder of the top row)
@@ -627,7 +648,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
     // Compute columns
     const int cols = 8;
-    const int gapX = 16;
     const int colW = (m.getWidth() - gapX * (cols - 1)) / cols;
     const int muteH = 22;
     const int faderH = juce::jmin(160, m.getHeight() - muteH - 12);
@@ -664,33 +684,42 @@ void PinkELFOntsAudioProcessorEditor::resized()
     laneTabs.setBounds(laneCardArea.reduced(12, 12));
     const int tabH = laneTabs.getTabbedButtonBar().getHeight();
 
-    // ===== Output section layout (top row nudged; scope aspect preserved) =====
+    // ===== Output section layout (nudge top row down; keep scope aspect) =====
     {
         auto r = outputArea.reduced(16, 18); // inner padding
 
         constexpr int knobW = kKnob, knobH = kKnob;
         constexpr int dual = kDual;
         constexpr int gap = kGap;
-        constexpr float kScopeAspect = 2.40f;
-        constexpr int topNudgePx = 12; // push Depth/Phase down a bit
+        constexpr float kScopeAspect = 2.40f; // fixed aspect for scope
 
-        // Left column wide enough for big dual knob
+        // Left column sized to comfortably hold the big dual knob
         const int leftColW = std::max(2 * knobW + gap, dual) + 16;
         auto leftCol = r.removeFromLeft(leftColW);
 
-        // --- Anchor Slope / Curve at the bottom (unchanged position)
-        auto slopeRow = leftCol.removeFromBottom(dual);
+        // --- Place Slope / Curve first, anchored to the bottom of the column ---
+        const int bottomPad = 6; // breathing room to card bottom
+        const int slopeY = leftCol.getBottom() - dual - bottomPad;
+        auto slopeRow = juce::Rectangle<int>(leftCol.getX(), slopeY, leftCol.getWidth(), dual);
         slopeK.setBounds(slopeRow.withSizeKeepingCentre(dual, dual));
 
-        // --- Top row: Depth | Phase Nudge (moved slightly lower)
-        leftCol.removeFromTop(topNudgePx); // extra headroom for labels
-        auto rowTop = leftCol.removeFromTop(knobH);
-        depthK.setBounds(rowTop.removeFromLeft(knobW));
-        rowTop.removeFromLeft(gap);
-        phaseNudgeK.setBounds(rowTop.removeFromLeft(knobW));
+        // --- Top row (Depth | Phase Nudge) just above the dual knob ------------
+        const int minTopMargin = 12; // keep headers inside the card
+        const int between = 10;      // distance between rows
 
-        // --- Scope on the right, fixed aspect ratio & vertically centered
-        r.removeFromLeft(gap * 2); // breathing room
+        int topY = slopeRow.getY() - between - knobH;         // sit just above slope row
+        topY = std::max(topY, leftCol.getY() + minTopMargin); // never too high
+
+        auto rowTop = juce::Rectangle<int>(leftCol.getX(), topY, leftCol.getWidth(), knobH);
+        auto cTop = rowTop;
+
+        // Depth (left), Phase Nudge (right)
+        depthK.setBounds(cTop.removeFromLeft(knobW));
+        cTop.removeFromLeft(gap);
+        phaseNudgeK.setBounds(cTop.removeFromLeft(knobW));
+
+        // ---- Scope on the right, fixed aspect ratio & vertically centered -----
+        r.removeFromLeft(gap * 2); // breathing room between columns
         const int availW = std::max(0, r.getWidth());
         const int availH = std::max(0, r.getHeight());
         int scopeH = std::min(availH, (int)std::floor(availW / kScopeAspect));

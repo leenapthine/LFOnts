@@ -374,6 +374,7 @@ private:
     // Top bar
     juce::Label title;
     juce::ComboBox retrigBox;
+    juce::ComboBox rateBox;
 
     // Tabs
     juce::TabbedComponent laneTabs{juce::TabbedButtonBar::TabsAtTop};
@@ -476,6 +477,7 @@ private:
     std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
     std::unique_ptr<SliderAtt> slopeLenAtt, slopeCurveAtt;
+    std::unique_ptr<ComboAtt> rateAtt;
 
     // Lane 1 attaches
     std::unique_ptr<SliderAtt> phase1Att, invertA1Att, invertB1Att;

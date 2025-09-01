@@ -73,6 +73,12 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f),
         0.5f));
 
+    // --- Output rate (global time scale for the slope/curve) -----------------
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "output.rate", "Output Rate",
+        juce::StringArray{"1/4", "1/2", "1 bar", "2 bars", "4 bars"},
+        0 /* default = 1/4 */));
+
     // ---- Lane 1 (¼ note) ----
     params.push_back(std::make_unique<AudioParameterBool>(
         "lane1.enabled", "Lane 1 Enabled", true));
@@ -438,6 +444,7 @@ void PinkELFOntsAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPe
     lane5Phase01 = 0.0;
     lane6Phase01 = 0.0;
     carrierPhase = 0.0;
+    outputSlopePhase01 = 0.0;
 }
 
 void PinkELFOntsAudioProcessor::updateTransportInfo()
@@ -822,19 +829,15 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         {
             if (retrigMode == 1 /* Every Note */ || retrigMode == 2 /* First Note (basic) */)
             {
-                lane1Phase01 = 0.0;
-                lane2Phase01 = 0.0;
-                lane3Phase01 = 0.0;
-                lane4Phase01 = 0.0;
-                lane5Phase01 = 0.0;
-                lane6Phase01 = 0.0;
+                lane1Phase01 = lane2Phase01 = lane3Phase01 = 0.0;
+                lane4Phase01 = lane5Phase01 = lane6Phase01 = 0.0;
+                outputSlopePhase01 = 0.0;
             }
         }
     }
 
-    // ---- timing ----
+    // ---- timing helpers ----
     const double bpm = getCurrentBpm();
-
     auto dPhiForBeats = [&](double beatsPerCycle)
     {
         const double cyclesPerSec = (bpm / 60.0) / beatsPerCycle;
@@ -848,6 +851,11 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     const double d4 = dPhiForBeats(1.0); // L4 1/8T
     const double d5 = dPhiForBeats(0.5); // L5 1/16
     const double d6 = dPhiForBeats(0.5); // L6 1/16T
+
+    // Global output-rate (beats per slope cycle)
+    const int rateIdx = (int)apvts.getRawParameterValue("output.rate")->load();
+    const double beatsPerSlopeCycle[5] = {1.0, 2.0, 4.0, 8.0, 16.0}; // 1/4, 1/2, 1 bar, 2 bars, 4 bars
+    const double dSlope = dPhiForBeats(beatsPerSlopeCycle[juce::jlimit(0, 4, rateIdx)]);
 
     // carrier (EF/preview tone)
     const double dPhiCar = (double)carrierHz / sampleRateHz;
@@ -871,7 +879,7 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     if (depth <= 0.0f || (!lane1On && !lane2On && !lane3On && !lane4On && !lane5On && !lane6On) || (mix1 <= 0.0f && mix2 <= 0.0f && mix3 <= 0.0f && mix4 <= 0.0f && mix5 <= 0.0f && mix6 <= 0.0f))
         return;
 
-    // Slope/curve params (read once per block is fine; phase changes per-sample)
+    // Slope/curve params (block-rate read is fine)
     const float slopeAmt = apvts.getRawParameterValue("output.slope")->load();        // 0..1
     const float slopeCurve = apvts.getRawParameterValue("output.slopeCurve")->load(); // 0..1
 
@@ -907,17 +915,19 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         if (lane6Phase01 >= 1.0)
             lane6Phase01 -= 1.0;
 
-        // --- mix lanes (unipolar 0..∞), then apply depth & slope, THEN clamp ---
+        // advance global slope phase by chosen rate
+        outputSlopePhase01 += dSlope;
+        if (outputSlopePhase01 >= 1.0)
+            outputSlopePhase01 -= 1.0;
+
+        // --- mix lanes, then apply depth & slope, then clamp ---
         float amp01 = (y1 * mix1 + y2 * mix2 + y3 * mix3 + y4 * mix4 + y5 * mix5 + y6 * mix6);
 
-        // global depth
         amp01 *= depth;
 
-        // global slope/curve — use lane1’s cycle as the base phase (matches UI)
-        const float slopeGain = outputSlopeGain((float)lane1Phase01, slopeAmt, slopeCurve); // 0..1
+        const float slopeGain = outputSlopeGain((float)outputSlopePhase01, slopeAmt, slopeCurve); // 0..1
         amp01 *= slopeGain;
 
-        // final safety clamp (single place)
         amp01 = juce::jlimit(0.0f, 1.0f, amp01);
 
         // carrier out

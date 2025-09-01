@@ -64,6 +64,8 @@ private:
     // Tempo utility
     double getCurrentBpm() const;
 
+    double outputSlopePhase01 = 0.0; // phase for the global slope/curve
+
     // Unipolar clamp (we ignore global.range now)
     static inline float toUnipolar01(float v) { return juce::jlimit(0.0f, 1.0f, v); }
 
