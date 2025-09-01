@@ -827,37 +827,62 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         const auto &m = metadata.getMessage();
         if (m.isNoteOn())
         {
-            if (retrigMode == 1 /* Every Note */ || retrigMode == 2 /* First Note (basic) */)
+            if (retrigMode == 1 /* Every Note */ || retrigMode == 2 /* First Note */)
             {
                 lane1Phase01 = lane2Phase01 = lane3Phase01 = 0.0;
                 lane4Phase01 = lane5Phase01 = lane6Phase01 = 0.0;
+                // keep if you like, but slope phasing now follows lane1Phase01 again
                 outputSlopePhase01 = 0.0;
             }
         }
     }
 
-    // ---- timing helpers ----
+    // ---- timing ----
     const double bpm = getCurrentBpm();
+
+    // Global rate scale from "output.rate" (AudioParameterChoice index 0..4)
+    const int rateIdx = (int)*apvts.getRawParameterValue("output.rate");
+    double rateScale;
+    switch (rateIdx)
+    {
+    case 0:
+        rateScale = 1.0;
+        break; // 1/4  (base)
+    case 1:
+        rateScale = 2.0;
+        break; // 1/2
+    case 2:
+        rateScale = 4.0;
+        break; // 1 bar
+    case 3:
+        rateScale = 8.0;
+        break; // 2 bars
+    case 4:
+        rateScale = 16.0;
+        break; // 4 bars
+    default:
+        rateScale = 1.0;
+        break;
+    }
+
+    // Δphase per sample for a full cycle lasting beatsPerCycle beats,
+    // stretched by rateScale (bigger == slower).
     auto dPhiForBeats = [&](double beatsPerCycle)
     {
-        const double cyclesPerSec = (bpm / 60.0) / beatsPerCycle;
+        const double beatsStretched = beatsPerCycle * rateScale; // slow everything globally
+        const double cyclesPerSec = (bpm / 60.0) / beatsStretched;
         return cyclesPerSec / sampleRateHz;
     };
 
-    // Lane lengths in beats per full LFO cycle
-    const double d1 = dPhiForBeats(2.0); // L1 1/4
-    const double d2 = dPhiForBeats(2.0); // L2 1/4T
-    const double d3 = dPhiForBeats(1.0); // L3 1/8
-    const double d4 = dPhiForBeats(1.0); // L4 1/8T
-    const double d5 = dPhiForBeats(0.5); // L5 1/16
-    const double d6 = dPhiForBeats(0.5); // L6 1/16T
+    // Lane base lengths (beats per full cycle) -> scaled by rateScale
+    const double d1 = dPhiForBeats(2.0); // L1: 1/4
+    const double d2 = dPhiForBeats(2.0); // L2: 1/4T
+    const double d3 = dPhiForBeats(1.0); // L3: 1/8
+    const double d4 = dPhiForBeats(1.0); // L4: 1/8T
+    const double d5 = dPhiForBeats(0.5); // L5: 1/16
+    const double d6 = dPhiForBeats(0.5); // L6: 1/16T
 
-    // Global output-rate (beats per slope cycle)
-    const int rateIdx = (int)apvts.getRawParameterValue("output.rate")->load();
-    const double beatsPerSlopeCycle[5] = {1.0, 2.0, 4.0, 8.0, 16.0}; // 1/4, 1/2, 1 bar, 2 bars, 4 bars
-    const double dSlope = dPhiForBeats(beatsPerSlopeCycle[juce::jlimit(0, 4, rateIdx)]);
-
-    // carrier (EF/preview tone)
+    // carrier (preview tone for EF)
     const double dPhiCar = (double)carrierHz / sampleRateHz;
 
     // Params
@@ -876,10 +901,12 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     const float mix5 = (float)*apvts.getRawParameterValue("lane5.mix");
     const float mix6 = (float)*apvts.getRawParameterValue("lane6.mix");
 
-    if (depth <= 0.0f || (!lane1On && !lane2On && !lane3On && !lane4On && !lane5On && !lane6On) || (mix1 <= 0.0f && mix2 <= 0.0f && mix3 <= 0.0f && mix4 <= 0.0f && mix5 <= 0.0f && mix6 <= 0.0f))
+    if (depth <= 0.0f ||
+        (!lane1On && !lane2On && !lane3On && !lane4On && !lane5On && !lane6On) ||
+        (mix1 <= 0.0f && mix2 <= 0.0f && mix3 <= 0.0f && mix4 <= 0.0f && mix5 <= 0.0f && mix6 <= 0.0f))
         return;
 
-    // Slope/curve params (block-rate read is fine)
+    // Slope/curve params (read once per block)
     const float slopeAmt = apvts.getRawParameterValue("output.slope")->load();        // 0..1
     const float slopeCurve = apvts.getRawParameterValue("output.slopeCurve")->load(); // 0..1
 
@@ -895,7 +922,7 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         const float y5 = lane5On ? evalLane5((float)lane5Phase01) : 0.0f;
         const float y6 = lane6On ? evalLane6Triplet((float)lane6Phase01) : 0.0f;
 
-        // advance phases
+        // advance phases (wrapped)
         lane1Phase01 += d1;
         if (lane1Phase01 >= 1.0)
             lane1Phase01 -= 1.0;
@@ -915,22 +942,20 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         if (lane6Phase01 >= 1.0)
             lane6Phase01 -= 1.0;
 
-        // advance global slope phase by chosen rate
-        outputSlopePhase01 += dSlope;
-        if (outputSlopePhase01 >= 1.0)
-            outputSlopePhase01 -= 1.0;
-
-        // --- mix lanes, then apply depth & slope, then clamp ---
+        // --- mix lanes, then apply depth & slope, then clamp (single place) ---
         float amp01 = (y1 * mix1 + y2 * mix2 + y3 * mix3 + y4 * mix4 + y5 * mix5 + y6 * mix6);
 
+        // depth first
         amp01 *= depth;
 
-        const float slopeGain = outputSlopeGain((float)outputSlopePhase01, slopeAmt, slopeCurve); // 0..1
+        // slope/curve: **phase from lane1** (this is the version you said worked)
+        const float slopeGain = outputSlopeGain((float)lane1Phase01, slopeAmt, slopeCurve); // 0..1
         amp01 *= slopeGain;
 
+        // final safety clamp
         amp01 = juce::jlimit(0.0f, 1.0f, amp01);
 
-        // carrier out
+        // carrier preview
         const float car = std::sin(float(juce::MathConstants<double>::twoPi * carrierPhase));
         carrierPhase += dPhiCar;
         if (carrierPhase >= 1.0)
