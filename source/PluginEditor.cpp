@@ -116,6 +116,21 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     configSlider(phaseNudgeK.slider, -30.0, 30.0, "°");
     phaseNudgeAtt = std::make_unique<SliderAtt>(processor.apvts, "global.phaseNudgeDeg", phaseNudgeK.slider);
 
+    // Slope / Curve
+    addAndMakeVisible(slopeK);
+
+    // Outer (slope amount): 0..1, default 0.5 (flat)
+    configSlider(slopeK.length, 0.0, 1.0, "");
+    slopeK.length.setDoubleClickReturnValue(true, 0.5);
+
+    // Inner (curve): 0..1, default 0.5 (linear)
+    configSlider(slopeK.curve, 0.0, 1.0, "");
+    slopeK.curve.setDoubleClickReturnValue(true, 0.5);
+
+    // Attach
+    slopeLenAtt = std::make_unique<SliderAtt>(processor.apvts, "output.slope", slopeK.length);
+    slopeCurveAtt = std::make_unique<SliderAtt>(processor.apvts, "output.slopeCurve", slopeK.curve);
+
     // --- LANE 1 controls ----------------------------------------------------
     addAndMakeVisible(phaseK1);
     configSlider(phaseK1.slider, 0.0, 360.0, "°");
@@ -542,10 +557,14 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     chainOnValue(invertB6.slider, upd6);
     chainOnValue(phaseK6.slider, upd6);
 
-    // depth / phase nudge affect the mixed scope
+    // depth / phase nudge / slope affect the mixed scope
     chainOnValue(depthK.slider, [this]
                  { updateOutputMixScope(); });
     chainOnValue(phaseNudgeK.slider, [this]
+                 { updateOutputMixScope(); });
+    chainOnValue(slopeK.length, [this]
+                 { updateOutputMixScope(); });
+    chainOnValue(slopeK.curve, [this]
                  { updateOutputMixScope(); });
 
     // mixer faders + on/off toggles affect the mixed scope
@@ -645,23 +664,39 @@ void PinkELFOntsAudioProcessorEditor::resized()
     laneTabs.setBounds(laneCardArea.reduced(12, 12));
     const int tabH = laneTabs.getTabbedButtonBar().getHeight();
 
-    // Output section layout
+    // ===== Output section layout (top row nudged; scope aspect preserved) =====
     {
-        auto r = outputArea.reduced(16, 32); // inner content of the card
-        const int knobW = kKnob, knobH = kKnob;
-        const int y = r.getCentreY() - knobH / 2; // vertical center inside the card
+        auto r = outputArea.reduced(16, 18); // inner padding
 
-        // scope takes the remaining right side, vertically centered around the knobs
-        const int left = phaseNudgeK.getRight() + kGap * 3;
-        auto scopeArea = juce::Rectangle<int>(left, r.getY(), r.getRight() - left, kKnob + 20)
-                             .withCentre({(left + r.getRight()) / 2, r.getCentreY()});
+        constexpr int knobW = kKnob, knobH = kKnob;
+        constexpr int dual = kDual;
+        constexpr int gap = kGap;
+        constexpr float kScopeAspect = 2.40f;
+        constexpr int topNudgePx = 12; // push Depth/Phase down a bit
+
+        // Left column wide enough for big dual knob
+        const int leftColW = std::max(2 * knobW + gap, dual) + 16;
+        auto leftCol = r.removeFromLeft(leftColW);
+
+        // --- Anchor Slope / Curve at the bottom (unchanged position)
+        auto slopeRow = leftCol.removeFromBottom(dual);
+        slopeK.setBounds(slopeRow.withSizeKeepingCentre(dual, dual));
+
+        // --- Top row: Depth | Phase Nudge (moved slightly lower)
+        leftCol.removeFromTop(topNudgePx); // extra headroom for labels
+        auto rowTop = leftCol.removeFromTop(knobH);
+        depthK.setBounds(rowTop.removeFromLeft(knobW));
+        rowTop.removeFromLeft(gap);
+        phaseNudgeK.setBounds(rowTop.removeFromLeft(knobW));
+
+        // --- Scope on the right, fixed aspect ratio & vertically centered
+        r.removeFromLeft(gap * 2); // breathing room
+        const int availW = std::max(0, r.getWidth());
+        const int availH = std::max(0, r.getHeight());
+        int scopeH = std::min(availH, (int)std::floor(availW / kScopeAspect));
+        int scopeW = (int)std::floor(scopeH * kScopeAspect);
+        auto scopeArea = juce::Rectangle<int>(0, 0, scopeW, scopeH).withCentre(r.getCentre());
         outputMixScope.setBounds(scopeArea);
-
-        // left-aligned, vertically centered
-        depthK.setBounds(r.getX(), y, knobW, knobH);
-        phaseNudgeK.setBounds(r.getX() + knobW + kGap, y, knobW, knobH);
-
-        r.removeFromTop(10);
     }
 
     // --- Tab content --------------------------------------------------------
@@ -780,6 +815,13 @@ void PinkELFOntsAudioProcessorEditor::resized()
         addAndMakeVisible(outputMixScope);
         outputMixScope.setEvaluator([this](float ph01)
                                     { return processor.evalMixed(ph01); });
+
+        // draw the output slope/curve as a soft green overlay
+        outputMixScope.setOverlayEvaluator(
+            [this](float ph01)
+            { return processor.evalSlopeOnly(ph01); },
+            juce::Colour::fromFloatRGBA(0.55f, 0.95f, 0.75f, 0.70f) // soft green, semi-transparent
+        );
 
         // ---------------- Row 0: Phase | Invert A | Invert B (centered) ----------
         auto row0 = controls.removeFromTop(kKnob);

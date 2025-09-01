@@ -196,6 +196,14 @@ struct ScopeTriangles : juce::Component
         repaint();
     }
 
+    // --- optional overlay (e.g., output slope/curve) ------------------------
+    void setOverlayEvaluator(std::function<float(float)> fn, juce::Colour c)
+    {
+        overlayEval = std::move(fn);
+        overlayColour = c;
+        repaint();
+    }
+
     void paint(juce::Graphics &g) override
     {
         auto r = getLocalBounds().toFloat().reduced(8.0f, 6.0f);
@@ -262,6 +270,24 @@ struct ScopeTriangles : juce::Component
             return;
         }
 
+        // --- overlay line (e.g., slope/curve hint) --------------------------
+        if (overlayEval)
+        {
+            juce::Path hint;
+            const int n = juce::jmax(128, (int)(r.getWidth()));
+            for (int i = 0; i <= n; ++i)
+            {
+                const float xNorm = (float)i / (float)n; // 0..1
+                const float ph = std::fmod(phase01 + xNorm * 1.0f, 1.0f);
+                const float yN = juce::jlimit(0.0f, 1.0f, overlayEval(ph));
+                const float x = r.getX() + xNorm * r.getWidth();
+                const float y = yBase - yN * amp;
+                (i == 0 ? hint.startNewSubPath(x, y) : hint.lineTo(x, y));
+            }
+            g.setColour(overlayColour);
+            g.strokePath(hint, juce::PathStrokeType(2.0f));
+        }
+
         // If an evaluator is set, draw exactly one full cycle (0..1).
         // Otherwise (static preview), show triangles based on numTriangles.
         const float periods = (evaluator ? 1.0f : 0.5f * (float)numTriangles);
@@ -311,6 +337,8 @@ private:
     LFO::Shape shape{};
     std::function<float(float)> evaluator; // if set, used instead of shape
     bool abTripletMode = false;            // NEW
+    std::function<float(float)> overlayEval;
+    juce::Colour overlayColour{juce::Colours::transparentBlack};
 };
 
 // --------------- main editor ---------------
@@ -370,6 +398,7 @@ private:
     // Global
     Knob depthK{"Depth"};
     Knob phaseNudgeK{"Phase Nudge"};
+    DualKnob slopeK{"Slope / Curve"};
 
     // Lane 1 controls
     Knob phaseK1{"Phase"};
@@ -443,8 +472,10 @@ private:
     Knob randomXfadeK{"Xfade (ms)"};
     Knob randomMixK{"Mix"};
 
+    // Global Attachments
     std::unique_ptr<ComboAtt> retrigAtt;
     std::unique_ptr<SliderAtt> depthAtt, phaseNudgeAtt;
+    std::unique_ptr<SliderAtt> slopeLenAtt, slopeCurveAtt;
 
     // Lane 1 attaches
     std::unique_ptr<SliderAtt> phase1Att, invertA1Att, invertB1Att;
