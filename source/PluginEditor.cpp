@@ -105,7 +105,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     laneTabs.addTab("Lane 6 (1/16T)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Lane 7 (1/32)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Lane 8 (1/32T)", juce::Colours::transparentBlack, nullptr, false);
-    laneTabs.addTab("Random", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.getTabbedButtonBar().setColour(juce::TabbedButtonBar::tabTextColourId, juce::Colour(0xFFE6EBF2));
     laneTabs.getTabbedButtonBar().addChangeListener(this);
 
@@ -582,7 +581,6 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(lane6Scope3);
     addAndMakeVisible(lane7Scope2);
     addAndMakeVisible(lane8Scope3);
-    addAndMakeVisible(randomScope3);
 
     // **Drive scopes from processor (DSP truth) so curvature/invert apply**
     lane1Scope2.setEvaluator([this](float ph)
@@ -891,7 +889,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
     const bool lane6Visible = (tab == 5);
     const bool lane7Visible = (tab == 6);
     const bool lane8Visible = (tab == 7);
-    const bool randomVisible = (tab == 8);
 
     // LANE 1 controls visibility
     phaseK1.setVisible(lane1Visible);
@@ -973,12 +970,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
     intensityB8.setVisible(lane8Visible);
     lane8Scope3.setVisible(lane8Visible);
 
-    // Random (placeholders)
-    randomRate.setVisible(randomVisible);
-    randomXfadeK.setVisible(randomVisible);
-    randomMixK.setVisible(randomVisible);
-    randomScope3.setVisible(randomVisible);
-
     auto layoutLane = [&]()
     {
         auto r = content;
@@ -1011,8 +1002,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
             scopeView = &lane7Scope2;
         else if (lane8Visible)
             scopeView = &lane8Scope3;
-        else if (randomVisible)
-            scopeView = &randomScope3;
 
         if (scopeView != nullptr)
             scopeView->setBounds(scope);
@@ -1159,22 +1148,6 @@ void PinkELFOntsAudioProcessorEditor::resized()
 
     if (lane1Visible || lane2Visible || lane3Visible || lane4Visible || lane5Visible || lane6Visible || lane7Visible || lane8Visible)
         layoutLane();
-    else
-    {
-        // Random (placeholder layout)
-        auto r = content;
-        const int controlsW = kKnob * 3 + kGap * 2 + 120;
-        auto controls = r.removeFromLeft(controlsW);
-        auto scope = r.reduced(8, 6);
-        randomScope3.setBounds(scope);
-
-        auto row = controls.removeFromTop(kKnob + 8);
-        randomRate.setBounds(row.removeFromLeft(120));
-        row.removeFromLeft(kGap);
-        randomXfadeK.setBounds(row.removeFromLeft(kKnob));
-        row.removeFromLeft(kGap);
-        randomMixK.setBounds(row.removeFromLeft(kKnob));
-    }
 }
 
 void PinkELFOntsAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaster *source)

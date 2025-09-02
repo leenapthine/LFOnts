@@ -524,19 +524,6 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane8.invertB", "Lane 8 Invert B",
         juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
-    // ---- Random lane (placeholders) ----
-    params.push_back(std::make_unique<AudioParameterBool>(
-        "random.enabled", "Random Enabled", false));
-    params.push_back(std::make_unique<AudioParameterChoice>(
-        "random.rate", "Random Rate",
-        StringArray{"1/4", "1/8", "1/16"}, 0));
-    params.push_back(std::make_unique<AudioParameterFloat>(
-        "random.crossfadeMs", "Random Crossfade (ms)",
-        NormalisableRange<float>(5.0f, 80.0f, 0.0f, 1.0f), 20.0f));
-    params.push_back(std::make_unique<AudioParameterFloat>(
-        "random.mix", "Random Mix",
-        NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
-
     return {params.begin(), params.end()};
 }
 

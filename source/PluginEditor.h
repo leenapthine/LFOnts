@@ -121,13 +121,13 @@ struct DualKnob : juce::Component
     }
 };
 
-// ---- Switch matrix (L1..L9 + Random) --------------------------------------
+// ---- Switch matrix (L1..L9) --------------------------------------
 struct SwitchMatrix : juce::Component
 {
     juce::ToggleButton l1{"L1"}, l2{"L2"}, l3{"L3"}, l4{"L4"}, l5{"L5"},
-        l6{"L6"}, l7{"L7"}, l8{"L8"}, l9{"L9"}, random{"Random"};
+        l6{"L6"}, l7{"L7"}, l8{"L8"}, l9{"L9"};
 
-    std::array<juce::ToggleButton *, 10> all{&l1, &l2, &l3, &l4, &l5, &l6, &l7, &l8, &l9, &random};
+    std::array<juce::ToggleButton *, 10> all{&l1, &l2, &l3, &l4, &l5, &l6, &l7, &l8, &l9};
 
     SwitchMatrix()
     {
@@ -160,7 +160,7 @@ struct SwitchMatrix : juce::Component
 
         placeRow(0); // L1..L5
         r.removeFromTop(gapY);
-        placeRow(5); // L6..L9 + Random
+        placeRow(5); // L6..L9
     }
 };
 
@@ -484,16 +484,10 @@ private:
     ScopeTriangles lane6Scope3{3}; // Lane-6 triplet scope (A-B-B)
     ScopeTriangles lane7Scope2{2};
     ScopeTriangles lane8Scope3{3};
-    ScopeTriangles randomScope3{3};
 
     // Output-card mixed scope
     ScopeTriangles outputMixScope{2}; // reuse your scope; 2 triangles look fits the motif
     void updateOutputMixScope();      // helper to repaint when things change
-
-    // Random tab (placeholder)
-    juce::ComboBox randomRate;
-    Knob randomXfadeK{"Xfade (ms)"};
-    Knob randomMixK{"Mix"};
 
     // Global Attachments
     std::unique_ptr<ComboAtt> retrigAtt;
