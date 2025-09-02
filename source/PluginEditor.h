@@ -365,6 +365,8 @@ private:
     void updateLane4Scope();
     void updateLane5Scope();
     void updateLane6Scope();
+    void updateLane7Scope();
+    void updateLane8Scope();
 
     // helper
     bool paramExists(const juce::String &id) const;
@@ -455,6 +457,24 @@ private:
     DualKnob intensityA6{"Intensity A / Curve 3"};
     DualKnob intensityB6{"Intensity B / Curve 4"};
 
+    // Lane 7 (1/32)
+    Knob phaseK7{"Phase"};
+    Knob invertA7{"Invert A"};
+    Knob invertB7{"Invert B"};
+    DualKnob timeA7{"Time A / Curve 1"};
+    DualKnob timeB7{"Time B / Curve 2"};
+    DualKnob intensityA7{"Intensity A"};
+    DualKnob intensityB7{"Intensity B"};
+
+    // Lane 8 (1/32T)
+    Knob phaseK8{"Phase"};
+    Knob invertA8{"Invert A"};
+    Knob invertB8{"Invert B"};
+    DualKnob timeA8{"Time A / Curve 1"};
+    DualKnob timeB8{"Time B / Curve 2"};
+    DualKnob intensityA8{"Intensity A"};
+    DualKnob intensityB8{"Intensity B"};
+
     // Scopes
     ScopeTriangles lane1Scope2{2};
     ScopeTriangles lane2Scope3{3}; // Lane-2 triplet scope (A-B-B)
@@ -462,6 +482,8 @@ private:
     ScopeTriangles lane4Scope3{3}; // Lane-4 triplet scope (A-B-B)
     ScopeTriangles lane5Scope2{2};
     ScopeTriangles lane6Scope3{3}; // Lane-6 triplet scope (A-B-B)
+    ScopeTriangles lane7Scope2{2};
+    ScopeTriangles lane8Scope3{3};
     ScopeTriangles randomScope3{3};
 
     // Output-card mixed scope
@@ -568,6 +590,20 @@ private:
     // Intensities + their inner curve rings
     std::unique_ptr<SliderAtt> intensityA6LenAtt, intensityA6CurveAtt;
     std::unique_ptr<SliderAtt> intensityB6LenAtt, intensityB6CurveAtt;
+
+    // Lane 7 and 9 attachments
+
+    std::unique_ptr<SliderAtt> phase7Att, invertA7Att, invertB7Att;
+    std::unique_ptr<SliderAtt> timeA7LenAtt, timeA7LenFallAtt, timeA7CurveRiseAtt;
+    std::unique_ptr<SliderAtt> timeB7LenAtt, timeB7LenFallAtt, timeB7CurveRiseAtt;
+    std::unique_ptr<SliderAtt> intensityA7LenAtt, intensityA7CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB7LenAtt, intensityB7CurveAtt;
+
+    std::unique_ptr<SliderAtt> phase8Att, invertA8Att, invertB8Att;
+    std::unique_ptr<SliderAtt> timeA8LenAtt, timeA8LenFallAtt, timeA8CurveRiseAtt;
+    std::unique_ptr<SliderAtt> timeB8LenAtt, timeB8LenFallAtt, timeB8CurveRiseAtt;
+    std::unique_ptr<SliderAtt> intensityA8LenAtt, intensityA8CurveAtt;
+    std::unique_ptr<SliderAtt> intensityB8LenAtt, intensityB8CurveAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PinkELFOntsAudioProcessorEditor)
 };

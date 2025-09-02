@@ -410,6 +410,120 @@ PinkELFOntsAudioProcessor::createParameterLayout()
         "lane6.invertB", "Lane 6 Invert B",
         NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
 
+    // ---- Lane 7 (1/32) ----
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "lane7.enabled", "Lane 7 Enabled", false));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.mix", "Lane 7 Mix",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 1.0f));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.phaseDeg", "Lane 7 Phase (deg)",
+        juce::NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
+
+    // Intensities (amplitude per half)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.intensityA", "Lane 7 Intensity A",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.intensityB", "Lane 7 Intensity B",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+
+    // Time lengths (A/B)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curve.riseA", "Lane 7 Rise A",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curve.fallA", "Lane 7 Fall A",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curve.riseB", "Lane 7 Rise B",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curve.fallB", "Lane 7 Fall B",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+
+    // Inner curvature mapping you’re using now:
+    //   Time inner → curv.rise*
+    //   Intensity inner → curv.fall*
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curv.riseA", "Lane 7 Curv Rise A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curv.fallA", "Lane 7 Curv Fall A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curv.riseB", "Lane 7 Curv Rise B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.curv.fallB", "Lane 7 Curv Fall B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // Invert
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.invertA", "Lane 7 Invert A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane7.invertB", "Lane 7 Invert B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // ---- Lane 8 (1/32T) ----
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "lane8.enabled", "Lane 8 Enabled", false));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.mix", "Lane 8 Mix",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 1.0f));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.phaseDeg", "Lane 8 Phase (deg)",
+        juce::NormalisableRange<float>(0.0f, 360.0f, 0.0f, 1.0f), 0.0f));
+
+    // Intensities (amplitude per half)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.intensityA", "Lane 8 Intensity A",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.intensityB", "Lane 8 Intensity B",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 1.0f), 0.5f));
+
+    // Time lengths (A/B)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curve.riseA", "Lane 8 Rise A",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curve.fallA", "Lane 8 Fall A",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curve.riseB", "Lane 8 Rise B",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curve.fallB", "Lane 8 Fall B",
+        juce::NormalisableRange<float>(0.25f, 4.0f, 0.0f, 1.0f), 1.0f));
+
+    // Inner curvature mapping you’re using now:
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curv.riseA", "Lane 8 Curv Rise A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curv.fallA", "Lane 8 Curv Fall A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curv.riseB", "Lane 8 Curv Rise B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.curv.fallB", "Lane 8 Curv Fall B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
+    // Invert
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.invertA", "Lane 8 Invert A",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lane8.invertB", "Lane 8 Invert B",
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.0f, 1.0f), 0.0f));
+
     // ---- Random lane (placeholders) ----
     params.push_back(std::make_unique<AudioParameterBool>(
         "random.enabled", "Random Enabled", false));
@@ -599,6 +713,51 @@ LFO::Shape PinkELFOntsAudioProcessor::makeLane6Shape() const
     return s;
 }
 
+LFO::Shape PinkELFOntsAudioProcessor::makeLane7Shape() const
+{
+    LFO::Shape s;
+    auto &p = apvts;
+
+    // Lengths (Time A/B outers via attachments)
+    s.riseA = p.getRawParameterValue("lane7.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane7.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane7.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane7.curve.fallB")->load();
+
+    // Curvatures [-1..1] (Time inner → curvRise*, Intensity inner → curvFall*)
+    s.curvRiseA = p.getRawParameterValue("lane7.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane7.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane7.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane7.curv.fallB")->load();
+
+    // Invert (abs, clamped)
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane7.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane7.invertB")->load()));
+
+    return s;
+}
+
+LFO::Shape PinkELFOntsAudioProcessor::makeLane8Shape() const
+{
+    LFO::Shape s;
+    auto &p = apvts;
+
+    s.riseA = p.getRawParameterValue("lane8.curve.riseA")->load();
+    s.fallA = p.getRawParameterValue("lane8.curve.fallA")->load();
+    s.riseB = p.getRawParameterValue("lane8.curve.riseB")->load();
+    s.fallB = p.getRawParameterValue("lane8.curve.fallB")->load();
+
+    s.curvRiseA = p.getRawParameterValue("lane8.curv.riseA")->load();
+    s.curvFallA = p.getRawParameterValue("lane8.curv.fallA")->load();
+    s.curvRiseB = p.getRawParameterValue("lane8.curv.riseB")->load();
+    s.curvFallB = p.getRawParameterValue("lane8.curv.fallB")->load();
+
+    s.invertA = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane8.invertA")->load()));
+    s.invertB = juce::jlimit(0.0f, 1.0f, std::abs(p.getRawParameterValue("lane8.invertB")->load()));
+
+    return s;
+}
+
 double PinkELFOntsAudioProcessor::getCurrentBpm() const
 {
     if (auto *ph = getPlayHead())
@@ -751,6 +910,54 @@ float PinkELFOntsAudioProcessor::evalLane6Triplet(float ph01) const
     return squareByIntensity(v, amp);
 }
 
+// Lane 7 (non-triplet, 1/32)
+float PinkELFOntsAudioProcessor::evalLane7(float ph01) const
+{
+    LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane7Shape();
+
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane7.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
+    const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
+
+    ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
+
+    const float v = LFO::evalCycle(ph01, s);
+    const int half = halfIndexFromPhase(ph01);
+    const float amp = laneHalfIntensity(7, half); // lane7.intensityA/B
+    return squareByIntensity(v, amp);
+}
+
+// Lane 8 (triplet A,B,B, 1/32T)
+float PinkELFOntsAudioProcessor::evalLane8Triplet(float ph01) const
+{
+    LFO::Shape s = const_cast<PinkELFOntsAudioProcessor *>(this)->makeLane8Shape();
+
+    const float lanePhaseDeg = apvts.getRawParameterValue("lane8.phaseDeg")->load();
+    const float globalNudge = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
+    const float phaseAdd01 = (lanePhaseDeg + globalNudge) / 360.0f;
+
+    ph01 = std::fmod(ph01 + phaseAdd01 + 1.0f, 1.0f);
+
+    float v = 0.0f;
+    int half = 0;
+    if (ph01 < 2.0f / 3.0f)
+    {
+        const float u = ph01 * 1.5f; // 0..1 across first 2/3 (A then B)
+        v = LFO::evalCycle(u, s);
+        half = (u < 0.5f ? 0 : 1);
+    }
+    else
+    {
+        const float u = (ph01 - 2.0f / 3.0f) * 3.0f; // 0..1 across last 1/3
+        const float b = 0.5f + 0.5f * u;             // force B half
+        v = LFO::evalCycle(b, s);
+        half = 1;
+    }
+
+    const float amp = laneHalfIntensity(8, half); // lane8.intensityA/B
+    return squareByIntensity(v, amp);
+}
+
 float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
 {
     // Phase nudge: wrap (not clamp) so modulation keeps moving around the cycle
@@ -783,6 +990,8 @@ float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
     sum += laneMix(4, evalLane4Triplet(wrap01(base * 2.0f))); // L4  1/8T
     sum += laneMix(5, evalLane5(wrap01(base * 4.0f)));        // L5  1/16
     sum += laneMix(6, evalLane6Triplet(wrap01(base * 4.0f))); // L6  1/16T
+    sum += laneMix(7, evalLane7(wrap01(base * 8.0f)));        // 1/32
+    sum += laneMix(8, evalLane8Triplet(wrap01(base * 8.0f))); // 1/32T
 
     // Global depth
     const float depth = apvts.getRawParameterValue("global.depth")->load(); // 0..1
@@ -831,6 +1040,7 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             {
                 lane1Phase01 = lane2Phase01 = lane3Phase01 = 0.0;
                 lane4Phase01 = lane5Phase01 = lane6Phase01 = 0.0;
+                lane7Phase01 = lane8Phase01 = 0.0;
                 // keep if you like, but slope phasing now follows lane1Phase01 again
                 outputSlopePhase01 = 0.0;
             }
@@ -875,12 +1085,14 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     };
 
     // Lane base lengths (beats per full cycle) -> scaled by rateScale
-    const double d1 = dPhiForBeats(2.0); // L1: 1/4
-    const double d2 = dPhiForBeats(2.0); // L2: 1/4T
-    const double d3 = dPhiForBeats(1.0); // L3: 1/8
-    const double d4 = dPhiForBeats(1.0); // L4: 1/8T
-    const double d5 = dPhiForBeats(0.5); // L5: 1/16
-    const double d6 = dPhiForBeats(0.5); // L6: 1/16T
+    const double d1 = dPhiForBeats(2.0);  // L1: 1/4
+    const double d2 = dPhiForBeats(2.0);  // L2: 1/4T
+    const double d3 = dPhiForBeats(1.0);  // L3: 1/8
+    const double d4 = dPhiForBeats(1.0);  // L4: 1/8T
+    const double d5 = dPhiForBeats(0.5);  // L5: 1/16
+    const double d6 = dPhiForBeats(0.5);  // L6: 1/16T
+    const double d7 = dPhiForBeats(0.25); // L7: 1/32
+    const double d8 = dPhiForBeats(0.25); // L8: 1/32T
 
     // carrier (preview tone for EF)
     const double dPhiCar = (double)carrierHz / sampleRateHz;
@@ -893,6 +1105,8 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     const bool lane4On = (*apvts.getRawParameterValue("lane4.enabled") > 0.5f);
     const bool lane5On = (*apvts.getRawParameterValue("lane5.enabled") > 0.5f);
     const bool lane6On = (*apvts.getRawParameterValue("lane6.enabled") > 0.5f);
+    const bool lane7On = (*apvts.getRawParameterValue("lane7.enabled") > 0.5f);
+    const bool lane8On = (*apvts.getRawParameterValue("lane8.enabled") > 0.5f);
 
     const float mix1 = (float)*apvts.getRawParameterValue("lane1.mix");
     const float mix2 = (float)*apvts.getRawParameterValue("lane2.mix");
@@ -900,10 +1114,12 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     const float mix4 = (float)*apvts.getRawParameterValue("lane4.mix");
     const float mix5 = (float)*apvts.getRawParameterValue("lane5.mix");
     const float mix6 = (float)*apvts.getRawParameterValue("lane6.mix");
+    const float mix7 = (float)*apvts.getRawParameterValue("lane7.mix");
+    const float mix8 = (float)*apvts.getRawParameterValue("lane8.mix");
 
     if (depth <= 0.0f ||
-        (!lane1On && !lane2On && !lane3On && !lane4On && !lane5On && !lane6On) ||
-        (mix1 <= 0.0f && mix2 <= 0.0f && mix3 <= 0.0f && mix4 <= 0.0f && mix5 <= 0.0f && mix6 <= 0.0f))
+        (!lane1On && !lane2On && !lane3On && !lane4On && !lane5On && !lane6On && !lane7On && !lane8On) ||
+        (mix1 <= 0.0f && mix2 <= 0.0f && mix3 <= 0.0f && mix4 <= 0.0f && mix5 <= 0.0f && mix6 <= 0.0f && mix7 <= 0.0f && mix8 <= 0.0f))
         return;
 
     // Slope/curve params (read once per block)
@@ -921,6 +1137,8 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         const float y4 = lane4On ? evalLane4Triplet((float)lane4Phase01) : 0.0f;
         const float y5 = lane5On ? evalLane5((float)lane5Phase01) : 0.0f;
         const float y6 = lane6On ? evalLane6Triplet((float)lane6Phase01) : 0.0f;
+        const float y7 = lane7On ? evalLane7((float)lane7Phase01) : 0.0f;
+        const float y8 = lane8On ? evalLane8Triplet((float)lane8Phase01) : 0.0f;
 
         // advance phases (wrapped)
         lane1Phase01 += d1;
@@ -941,9 +1159,15 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         lane6Phase01 += d6;
         if (lane6Phase01 >= 1.0)
             lane6Phase01 -= 1.0;
+        lane7Phase01 += d7;
+        if (lane7Phase01 >= 1.0)
+            lane7Phase01 -= 1.0;
+        lane8Phase01 += d8;
+        if (lane8Phase01 >= 1.0)
+            lane8Phase01 -= 1.0;
 
         // --- mix lanes, then apply depth & slope, then clamp (single place) ---
-        float amp01 = (y1 * mix1 + y2 * mix2 + y3 * mix3 + y4 * mix4 + y5 * mix5 + y6 * mix6);
+        float amp01 = (y1 * mix1 + y2 * mix2 + y3 * mix3 + y4 * mix4 + y5 * mix5 + y6 * mix6 + y7 * mix7 + y8 * mix8);
 
         // depth first
         amp01 *= depth;

@@ -103,6 +103,8 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     laneTabs.addTab("Lane 4 (1/8T)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Lane 5 (1/16)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Lane 6 (1/16T)", juce::Colours::transparentBlack, nullptr, false);
+    laneTabs.addTab("Lane 7 (1/32)", juce::Colours::transparentBlack, nullptr, false);
+    laneTabs.addTab("Lane 8 (1/32T)", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.addTab("Random", juce::Colours::transparentBlack, nullptr, false);
     laneTabs.getTabbedButtonBar().setColour(juce::TabbedButtonBar::tabTextColourId, juce::Colour(0xFFE6EBF2));
     laneTabs.getTabbedButtonBar().addChangeListener(this);
@@ -460,6 +462,117 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     intensityB6LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.intensityB", intensityB6.length);
     intensityB6CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane6.curv.fallB", intensityB6.curve);
 
+    // --- LANE 7 controls ----------------------------------------------------
+    addAndMakeVisible(phaseK7);
+    configSlider(phaseK7.slider, 0.0, 360.0, "°");
+
+    addAndMakeVisible(invertA7);
+    configSlider(invertA7.slider, -1.0, 1.0, "");
+    addAndMakeVisible(invertB7);
+    configSlider(invertB7.slider, -1.0, 1.0, "");
+
+    addAndMakeVisible(timeA7);
+    configSlider(timeA7.length, 0.25, 4.0, "");
+    configSlider(timeA7.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(timeB7);
+    configSlider(timeB7.length, 0.25, 4.0, "");
+    configSlider(timeB7.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(intensityA7);
+    configSlider(intensityA7.length, 0.0, 1.0, "");
+    configSlider(intensityA7.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(intensityB7);
+    configSlider(intensityB7.length, 0.0, 1.0, "");
+    configSlider(intensityB7.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(lane7Scope2);
+
+    // Double-click resets (match other lanes)
+    for (auto *s : {&invertA7.slider, &invertB7.slider})
+        s->setDoubleClickReturnValue(true, 0.0);
+    for (auto *s : {&timeA7.curve, &timeB7.curve, &intensityA7.curve, &intensityB7.curve})
+        s->setDoubleClickReturnValue(true, 0.0);
+    phaseK7.slider.setDoubleClickReturnValue(true, 0.0);
+
+    // --- Attach to APVTS (lane 7) -------------------------------------------
+    phase7Att = std::make_unique<SliderAtt>(processor.apvts, "lane7.phaseDeg", phaseK7.slider);
+    invertA7Att = std::make_unique<SliderAtt>(processor.apvts, "lane7.invertA", invertA7.slider);
+    invertB7Att = std::make_unique<SliderAtt>(processor.apvts, "lane7.invertB", invertB7.slider);
+
+    // Time A: outer length mirrors riseA & fallA; inner curve drives curv.riseA
+    timeA7LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.riseA", timeA7.length);
+    timeA7LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curve.fallA", timeA7.length);
+    timeA7CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curv.riseA", timeA7.curve);
+
+    // Time B: outer length mirrors riseB & fallB; inner curve drives curv.riseB
+    timeB7LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.riseB", timeB7.length);
+    timeB7LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curve.fallB", timeB7.length);
+    timeB7CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curv.fallA", timeB7.curve);
+
+    // Intensities: outer = amplitude; inner curve drives the FALL edges
+    intensityA7LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.intensityA", intensityA7.length);
+    intensityA7CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curv.riseB", intensityA7.curve);
+    intensityB7LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.intensityB", intensityB7.length);
+    intensityB7CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane7.curv.fallB", intensityB7.curve);
+
+    // --- LANE 8 controls ----------------------------------------------------
+    addAndMakeVisible(phaseK8);
+    configSlider(phaseK8.slider, 0.0, 360.0, "°");
+
+    addAndMakeVisible(invertA8);
+    configSlider(invertA8.slider, -1.0, 1.0, "");
+    addAndMakeVisible(invertB8);
+    configSlider(invertB8.slider, -1.0, 1.0, "");
+
+    addAndMakeVisible(timeA8);
+    configSlider(timeA8.length, 0.25, 4.0, "");
+    configSlider(timeA8.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(timeB8);
+    configSlider(timeB8.length, 0.25, 4.0, "");
+    configSlider(timeB8.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(intensityA8);
+    configSlider(intensityA8.length, 0.0, 1.0, "");
+    configSlider(intensityA8.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(intensityB8);
+    configSlider(intensityB8.length, 0.0, 1.0, "");
+    configSlider(intensityB8.curve, -1.0, 1.0, "");
+
+    addAndMakeVisible(lane8Scope3);
+    lane8Scope3.setABTripletMode(true); // ABB triplet preview
+
+    // Double-click resets
+    for (auto *s : {&invertA8.slider, &invertB8.slider})
+        s->setDoubleClickReturnValue(true, 0.0);
+    for (auto *s : {&timeA8.curve, &timeB8.curve, &intensityA8.curve, &intensityB8.curve})
+        s->setDoubleClickReturnValue(true, 0.0);
+    phaseK8.slider.setDoubleClickReturnValue(true, 0.0);
+
+    // --- Attach to APVTS (lane 8) -------------------------------------------
+    phase8Att = std::make_unique<SliderAtt>(processor.apvts, "lane8.phaseDeg", phaseK8.slider);
+    invertA8Att = std::make_unique<SliderAtt>(processor.apvts, "lane8.invertA", invertA8.slider);
+    invertB8Att = std::make_unique<SliderAtt>(processor.apvts, "lane8.invertB", invertB8.slider);
+
+    // Time A
+    timeA8LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.riseA", timeA8.length);
+    timeA8LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curve.fallA", timeA8.length);
+    timeA8CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curv.riseA", timeA8.curve);
+
+    // Time B
+    timeB8LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.riseB", timeB8.length);
+    timeB8LenFallAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curve.fallB", timeB8.length);
+    timeB8CurveRiseAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curv.fallA", timeB8.curve);
+
+    // Intensities
+    intensityA8LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.intensityA", intensityA8.length);
+    intensityA8CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curv.riseB", intensityA8.curve);
+    intensityB8LenAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.intensityB", intensityB8.length);
+    intensityB8CurveAtt = std::make_unique<SliderAtt>(processor.apvts, "lane8.curv.fallB", intensityB8.curve);
+
     // --- Scopes -------------------------------------------------------------
     addAndMakeVisible(lane1Scope2);
     addAndMakeVisible(lane2Scope3);
@@ -467,6 +580,8 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(lane4Scope3);
     addAndMakeVisible(lane5Scope2);
     addAndMakeVisible(lane6Scope3);
+    addAndMakeVisible(lane7Scope2);
+    addAndMakeVisible(lane8Scope3);
     addAndMakeVisible(randomScope3);
 
     // **Drive scopes from processor (DSP truth) so curvature/invert apply**
@@ -482,6 +597,10 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
                              { return processor.evalLane5(ph); });
     lane6Scope3.setEvaluator([this](float ph)
                              { return processor.evalLane6Triplet(ph); });
+    lane7Scope2.setEvaluator([this](float ph)
+                             { return processor.evalLane7(ph); });
+    lane8Scope3.setEvaluator([this](float ph)
+                             { return processor.evalLane8Triplet(ph); });
 
     // Update scopes when any relevant knob changes
     auto upd1 = [this]
@@ -496,6 +615,10 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     { updateLane5Scope(); updateOutputMixScope(); };
     auto upd6 = [this]
     { updateLane6Scope(); updateOutputMixScope(); };
+    auto upd7 = [this]
+    { updateLane7Scope(); updateOutputMixScope(); };
+    auto upd8 = [this]
+    { updateLane8Scope(); updateOutputMixScope(); };
 
     // Lane 1 chain
     chainOnValue(timeA1.length, upd1);
@@ -575,6 +698,32 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     chainOnValue(invertB6.slider, upd6);
     chainOnValue(phaseK6.slider, upd6);
 
+    // Lane 7 chain
+    chainOnValue(timeA7.length, upd7);
+    chainOnValue(timeA7.curve, upd7);
+    chainOnValue(timeB7.length, upd7);
+    chainOnValue(timeB7.curve, upd7);
+    chainOnValue(intensityA7.length, upd7);
+    chainOnValue(intensityA7.curve, upd7);
+    chainOnValue(intensityB7.length, upd7);
+    chainOnValue(intensityB7.curve, upd7);
+    chainOnValue(invertA7.slider, upd7);
+    chainOnValue(invertB7.slider, upd7);
+    chainOnValue(phaseK7.slider, upd7);
+
+    // Lane 8 chain
+    chainOnValue(timeA8.length, upd8);
+    chainOnValue(timeA8.curve, upd8);
+    chainOnValue(timeB8.length, upd8);
+    chainOnValue(timeB8.curve, upd8);
+    chainOnValue(intensityA8.length, upd8);
+    chainOnValue(intensityA8.curve, upd8);
+    chainOnValue(intensityB8.length, upd8);
+    chainOnValue(intensityB8.curve, upd8);
+    chainOnValue(invertA8.slider, upd8);
+    chainOnValue(invertB8.slider, upd8);
+    chainOnValue(phaseK8.slider, upd8);
+
     // depth / phase nudge / slope affect the mixed scope
     chainOnValue(depthK.slider, [this]
                  { updateOutputMixScope(); });
@@ -601,6 +750,8 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     updateLane4Scope();
     updateLane5Scope();
     updateLane6Scope();
+    updateLane7Scope();
+    updateLane8Scope();
     resized();
 }
 
@@ -738,7 +889,9 @@ void PinkELFOntsAudioProcessorEditor::resized()
     const bool lane4Visible = (tab == 3);
     const bool lane5Visible = (tab == 4);
     const bool lane6Visible = (tab == 5);
-    const bool randomVisible = (tab == 6);
+    const bool lane7Visible = (tab == 6);
+    const bool lane8Visible = (tab == 7);
+    const bool randomVisible = (tab == 8);
 
     // LANE 1 controls visibility
     phaseK1.setVisible(lane1Visible);
@@ -800,6 +953,26 @@ void PinkELFOntsAudioProcessorEditor::resized()
     intensityB6.setVisible(lane6Visible);
     lane6Scope3.setVisible(lane6Visible);
 
+    // LANE 7
+    phaseK7.setVisible(lane7Visible);
+    invertA7.setVisible(lane7Visible);
+    invertB7.setVisible(lane7Visible);
+    timeA7.setVisible(lane7Visible);
+    timeB7.setVisible(lane7Visible);
+    intensityA7.setVisible(lane7Visible);
+    intensityB7.setVisible(lane7Visible);
+    lane7Scope2.setVisible(lane7Visible);
+
+    // LANE 8
+    phaseK8.setVisible(lane8Visible);
+    invertA8.setVisible(lane8Visible);
+    invertB8.setVisible(lane8Visible);
+    timeA8.setVisible(lane8Visible);
+    timeB8.setVisible(lane8Visible);
+    intensityA8.setVisible(lane8Visible);
+    intensityB8.setVisible(lane8Visible);
+    lane8Scope3.setVisible(lane8Visible);
+
     // Random (placeholders)
     randomRate.setVisible(randomVisible);
     randomXfadeK.setVisible(randomVisible);
@@ -834,6 +1007,10 @@ void PinkELFOntsAudioProcessorEditor::resized()
             scopeView = &lane5Scope2;
         else if (lane6Visible)
             scopeView = &lane6Scope3;
+        else if (lane7Visible)
+            scopeView = &lane7Scope2;
+        else if (lane8Visible)
+            scopeView = &lane8Scope3;
         else if (randomVisible)
             scopeView = &randomScope3;
 
@@ -899,6 +1076,18 @@ void PinkELFOntsAudioProcessorEditor::resized()
             placeTop(invertA6);
             placeTop(invertB6);
         }
+        else if (lane7Visible)
+        {
+            placeTop(phaseK7);
+            placeTop(invertA7);
+            placeTop(invertB7);
+        }
+        else if (lane8Visible)
+        {
+            placeTop(phaseK8);
+            placeTop(invertA8);
+            placeTop(invertB8);
+        }
 
         controls.removeFromTop(kGap);
 
@@ -952,9 +1141,23 @@ void PinkELFOntsAudioProcessorEditor::resized()
             placeDual(intensityA6);
             placeDual(intensityB6);
         }
+        else if (lane7Visible)
+        {
+            placeDual(timeA7);
+            placeDual(timeB7);
+            placeDual(intensityA7);
+            placeDual(intensityB7);
+        }
+        else if (lane8Visible)
+        {
+            placeDual(timeA8);
+            placeDual(timeB8);
+            placeDual(intensityA8);
+            placeDual(intensityB8);
+        }
     };
 
-    if (lane1Visible || lane2Visible || lane3Visible || lane4Visible || lane5Visible || lane6Visible)
+    if (lane1Visible || lane2Visible || lane3Visible || lane4Visible || lane5Visible || lane6Visible || lane7Visible || lane8Visible)
         layoutLane();
     else
     {
@@ -1014,6 +1217,18 @@ void PinkELFOntsAudioProcessorEditor::updateLane6Scope()
 {
     // evaluator pulls from APVTS in processor; just repaint
     lane6Scope3.repaint();
+}
+
+void PinkELFOntsAudioProcessorEditor::updateLane7Scope()
+{
+    // evaluator pulls from APVTS in processor; just repaint
+    lane7Scope2.repaint();
+}
+
+void PinkELFOntsAudioProcessorEditor::updateLane8Scope()
+{
+    // evaluator pulls from APVTS in processor; just repaint
+    lane8Scope3.repaint();
 }
 
 void PinkELFOntsAudioProcessorEditor::updateOutputMixScope()

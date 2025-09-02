@@ -51,6 +51,8 @@ public:
     float evalLane4Triplet(float ph01) const; // A, B, B across 3 triangles
     float evalLane5(float ph01) const;        // 1/16
     float evalLane6Triplet(float ph01) const; // A, B, B across 3 triangles
+    float evalLane7(float ph01) const;
+    float evalLane8Triplet(float ph01) const;
 
 private:
     // Build shapes from APVTS
@@ -60,6 +62,8 @@ private:
     LFO::Shape makeLane4Shape() const;
     LFO::Shape makeLane5Shape() const;
     LFO::Shape makeLane6Shape() const;
+    LFO::Shape makeLane7Shape() const;
+    LFO::Shape makeLane8Shape() const;
 
     // Tempo utility
     double getCurrentBpm() const;
@@ -77,6 +81,8 @@ private:
     double lane4Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
     double lane5Phase01 = 0.0; // 0..1 phase (2 triangles per full cycle)
     double lane6Phase01 = 0.0; // 0..1 phase (3 triangles per full cycle, lasts 2 beats)
+    double lane7Phase01 = 0.0;
+    double lane8Phase01 = 0.0;
     double carrierPhase = 0.0; // 0..1 phase for the audio carrier (for EF)
 
     // Returns 0 for A half, 1 for B half based on phase 0..1 of a 2-triangle cycle
