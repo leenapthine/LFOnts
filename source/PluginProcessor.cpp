@@ -986,7 +986,7 @@ float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
     // Output slope/curve (use the SAME wrapped phase so overlay == DSP)
     const float slopeAmt = apvts.getRawParameterValue("output.slope")->load();        // 0..1
     const float slopeCurve = apvts.getRawParameterValue("output.slopeCurve")->load(); // 0..1
-    const float slopeGain = outputSlopeGain(base, slopeAmt, slopeCurve);              // 0..1
+    const float slopeGain = outputSlopeGain(ph01, slopeAmt, slopeCurve);              // 0..1
 
     const float out = juce::jlimit(0.0f, 1.0f, sum * depth * slopeGain);
     return out;
@@ -994,14 +994,10 @@ float PinkELFOntsAudioProcessor::evalMixed(float ph01) const
 
 float PinkELFOntsAudioProcessor::evalSlopeOnly(float ph01) const
 {
-    // match the same phase nudge applied to the mixed scope
-    const float nudgeDeg = apvts.getRawParameterValue("global.phaseNudgeDeg")->load();
-    const float t = std::fmod(ph01 + nudgeDeg / 360.0f + 1.0f, 1.0f);
-
     const float slopeAmt01 = apvts.getRawParameterValue("output.slope")->load();   // 0..1 (0.5=flat)
     const float curve01 = apvts.getRawParameterValue("output.slopeCurve")->load(); // 0..1 (0.5=linear)
 
-    return outputSlopeGain(t, slopeAmt01, curve01); // uses your static inline defined above
+    return outputSlopeGain(ph01, slopeAmt01, curve01); // uses your static inline defined above
 }
 
 // ==================== lifecycle / audio ====================
