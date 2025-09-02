@@ -1024,8 +1024,12 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 lane1Phase01 = lane2Phase01 = lane3Phase01 = 0.0;
                 lane4Phase01 = lane5Phase01 = lane6Phase01 = 0.0;
                 lane7Phase01 = lane8Phase01 = 0.0;
-                // keep if you like, but slope phasing now follows lane1Phase01 again
-                outputSlopePhase01 = 0.0;
+
+                // crossfade from current level to new stream (time-based length)
+                constexpr float retrigMs = 1.0f; // ~1 ms fade
+                const int fadeN = juce::jmax(1, (int)std::round(retrigMs * 0.001 * sampleRateHz));
+                retrigFadeSamplesLeft = fadeN;
+                retrigFromAmp = amp01Smooth;
             }
         }
     }
@@ -1035,7 +1039,7 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     // Global rate scale from "output.rate" (AudioParameterChoice index 0..4)
     const int rateIdx = (int)*apvts.getRawParameterValue("output.rate");
-    double rateScale;
+    double rateScale = 1.0;
     switch (rateIdx)
     {
     case 0:
@@ -1054,15 +1058,12 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         rateScale = 16.0;
         break; // 4 bars
     default:
-        rateScale = 1.0;
         break;
     }
 
-    // Δphase per sample for a full cycle lasting beatsPerCycle beats,
-    // stretched by rateScale (bigger == slower).
     auto dPhiForBeats = [&](double beatsPerCycle)
     {
-        const double beatsStretched = beatsPerCycle * rateScale; // slow everything globally
+        const double beatsStretched = beatsPerCycle * rateScale;
         const double cyclesPerSec = (bpm / 60.0) / beatsStretched;
         return cyclesPerSec / sampleRateHz;
     };
@@ -1111,6 +1112,31 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     auto *ch0 = buffer.getWritePointer(0);
 
+    // ---- coefficients (per-block) ----
+    // lane-mix smoother (~6 ms)
+    const float mixSmoothMs = 6.0f;
+    const float am = 1.0f - std::exp(-1.0f / (mixSmoothMs * 0.001f * (float)sampleRateHz));
+    // final control smoother (~2 ms)
+    const float smoothMs = 2.0f;
+    const float a = 1.0f - std::exp(-1.0f / (smoothMs * 0.001f * (float)sampleRateHz));
+
+    // smooth mixer targets once per block (then use m1..m8 inside loop)
+    auto smoothLaneMix = [&](int idx, bool enabled, float mix) -> float
+    {
+        const float target = enabled ? mix : 0.0f;
+        laneMixSmooth[idx] += am * (target - laneMixSmooth[idx]);
+        return laneMixSmooth[idx];
+    };
+
+    const float m1 = smoothLaneMix(0, lane1On, mix1);
+    const float m2 = smoothLaneMix(1, lane2On, mix2);
+    const float m3 = smoothLaneMix(2, lane3On, mix3);
+    const float m4 = smoothLaneMix(3, lane4On, mix4);
+    const float m5 = smoothLaneMix(4, lane5On, mix5);
+    const float m6 = smoothLaneMix(5, lane6On, mix6);
+    const float m7 = smoothLaneMix(6, lane7On, mix7);
+    const float m8 = smoothLaneMix(7, lane8On, mix8);
+
     for (int n = 0; n < numSamples; ++n)
     {
         // LFOs (0..1)
@@ -1149,26 +1175,35 @@ void PinkELFOntsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         if (lane8Phase01 >= 1.0)
             lane8Phase01 -= 1.0;
 
-        // --- mix lanes, then apply depth & slope, then clamp (single place) ---
-        float amp01 = (y1 * mix1 + y2 * mix2 + y3 * mix3 + y4 * mix4 + y5 * mix5 + y6 * mix6 + y7 * mix7 + y8 * mix8);
-
-        // depth first
+        // mix lanes, then apply depth & slope, then clamp
+        float amp01 = (y1 * m1 + y2 * m2 + y3 * m3 + y4 * m4 + y5 * m5 + y6 * m6 + y7 * m7 + y8 * m8);
         amp01 *= depth;
 
-        // slope/curve: **phase from lane1** (this is the version you said worked)
-        const float slopeGain = outputSlopeGain((float)lane1Phase01, slopeAmt, slopeCurve); // 0..1
+        // slope/curve: driven by lane1's phase (as per your working version)
+        const float slopeGain = outputSlopeGain((float)lane1Phase01, slopeAmt, slopeCurve);
         amp01 *= slopeGain;
 
-        // final safety clamp
+        // single safety clamp
         amp01 = juce::jlimit(0.0f, 1.0f, amp01);
 
-        // carrier preview
+        // short crossfade on retrig
+        if (retrigFadeSamplesLeft > 0)
+        {
+            const int N = retrigFadeSamplesLeft;
+            const int total = juce::jmax(1, (int)std::round(1.0f * 0.001f * sampleRateHz)); // same as retrigMs
+            const float t = 1.0f - (float)N / (float)total;                                 // 0 -> 1
+            amp01 = retrigFromAmp * (1.0f - t) + amp01 * t;
+            --retrigFadeSamplesLeft;
+        }
+
+        // carrier preview and final smoothing
         const float car = std::sin(float(juce::MathConstants<double>::twoPi * carrierPhase));
         carrierPhase += dPhiCar;
         if (carrierPhase >= 1.0)
             carrierPhase -= 1.0;
 
-        ch0[n] = car * amp01; // mono
+        amp01Smooth += a * (amp01 - amp01Smooth);
+        ch0[n] = car * amp01Smooth;
     }
 
     if (numChans > 1)

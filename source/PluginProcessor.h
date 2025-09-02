@@ -104,6 +104,14 @@ private:
     // Carrier for EF visualization
     float carrierHz = 1000.0f;
 
+    // Smoothing
+    float amp01Smooth = 0.0f;
+    float laneMixSmooth[8] = {0};
+
+    // De-click crossfade on retrig
+    int retrigFadeSamplesLeft = 0;
+    float retrigFromAmp = 0.0f;
+
     // Transport/book-keeping
     juce::AudioPlayHead *playHead = nullptr;
     juce::AudioPlayHead::CurrentPositionInfo posInfo{};

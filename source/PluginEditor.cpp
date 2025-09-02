@@ -583,22 +583,50 @@ PinkELFOntsAudioProcessorEditor::PinkELFOntsAudioProcessorEditor(PinkELFOntsAudi
     addAndMakeVisible(lane8Scope3);
 
     // **Drive scopes from processor (DSP truth) so curvature/invert apply**
-    lane1Scope2.setEvaluator([this](float ph)
-                             { return processor.evalLane1(ph); });
-    lane2Scope3.setEvaluator([this](float ph)
-                             { return processor.evalLane2Triplet(ph); });
-    lane3Scope2.setEvaluator([this](float ph)
-                             { return processor.evalLane3(ph); });
-    lane4Scope3.setEvaluator([this](float ph)
-                             { return processor.evalLane4Triplet(ph); });
-    lane5Scope2.setEvaluator([this](float ph)
-                             { return processor.evalLane5(ph); });
-    lane6Scope3.setEvaluator([this](float ph)
-                             { return processor.evalLane6Triplet(ph); });
-    lane7Scope2.setEvaluator([this](float ph)
-                             { return processor.evalLane7(ph); });
-    lane8Scope3.setEvaluator([this](float ph)
-                             { return processor.evalLane8Triplet(ph); });
+    // ---- Lane scopes should ignore global phase nudge visually ---------------
+    auto wrap01 = [](float x)
+    { return x - std::floor(x); };
+
+    lane1Scope2.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane1(wrap01(ph01 - nudge)); });
+
+    lane2Scope3.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane2Triplet(wrap01(ph01 - nudge)); });
+
+    lane3Scope2.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane3(wrap01(ph01 - nudge)); });
+
+    lane4Scope3.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane4Triplet(wrap01(ph01 - nudge)); });
+
+    lane5Scope2.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane5(wrap01(ph01 - nudge)); });
+
+    lane6Scope3.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane6Triplet(wrap01(ph01 - nudge)); });
+
+    // If you added lanes 7/8:
+    lane7Scope2.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane7(wrap01(ph01 - nudge)); });
+
+    lane8Scope3.setEvaluator([this, wrap01](float ph01)
+                             {
+    const float nudge = processor.apvts.getRawParameterValue("global.phaseNudgeDeg")->load() / 360.0f;
+    return processor.evalLane8Triplet(wrap01(ph01 - nudge)); });
 
     // Update scopes when any relevant knob changes
     auto upd1 = [this]
